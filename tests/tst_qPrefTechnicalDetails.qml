@@ -74,9 +74,6 @@ TestCase {
 		PrefTechnicalDetails.rulergraph = true
 		compare(PrefTechnicalDetails.rulergraph, true)
 
-		var x18 = PrefTechnicalDetails.show_average_depth
-		PrefTechnicalDetails.show_average_depth = true
-		compare(PrefTechnicalDetails.show_average_depth, true)
 
 		var x19 = PrefTechnicalDetails.show_ccr_sensors
 		PrefTechnicalDetails.show_ccr_sensors = true
@@ -128,7 +125,6 @@ TestCase {
 		property bool spy3 : false
 		property bool spy4 : false
 		property bool spy5 : false
-		property bool spy7 : false
 		property bool spy8 : false
 		property bool spy9 : false
 		property bool spy10 : false
@@ -139,7 +135,6 @@ TestCase {
 		property bool spy15 : false
 		property bool spy16 : false
 		property bool spy17 : false
-		property bool spy18 : false
 		property bool spy19 : false
 		property bool spy20 : false
 		property bool spy21 : false
@@ -152,32 +147,30 @@ TestCase {
 
 		Connections {
 			target: PrefTechnicalDetails
-			onCalcalltissuesChanged: {spyCatcher.spy1 = true }
-			onCalcceilingChanged: {spyCatcher.spy2 = true }
-			onCalcceiling3mChanged: {spyCatcher.spy3 = true }
-			onCalcndlttsChanged: {spyCatcher.spy4 = true }
-			onDcceilingChanged: {spyCatcher.spy5 = true }
-			onDisplay_unused_tanksChanged: {spyCatcher.spy7 = true }
-			onEadChanged: {spyCatcher.spy8 = true }
-			onGfhighChanged: {spyCatcher.spy9 = true }
-			onGflowChanged: {spyCatcher.spy10 = true }
-			onGf_low_at_maxdepthChanged: {spyCatcher.spy11 = true }
-			onHrgraphChanged: {spyCatcher.spy12 = true }
-			onModChanged: {spyCatcher.spy13 = true }
-			onModpO2Changed: {spyCatcher.spy14 = true }
-			onPercentagegraphChanged: {spyCatcher.spy15 = true }
-			onRedceilingChanged: {spyCatcher.spy16 = true }
-			onRulergraphChanged: {spyCatcher.spy17 = true }
-			onShow_average_depthChanged: {spyCatcher.spy18 = true }
-			onShow_ccr_sensorsChanged: {spyCatcher.spy19 = true }
-			onShow_ccr_setpointChanged: {spyCatcher.spy20 = true }
-			onShow_icdChanged: {spyCatcher.spy21 = true }
-			onShow_pictures_in_profileChanged: {spyCatcher.spy22 = true }
-			onShow_sacChanged: {spyCatcher.spy23 = true }
-			onShow_scr_ocpo2Changed: {spyCatcher.spy24 = true }
-			onTankbarChanged: {spyCatcher.spy25 = true }
-			onVpmb_conservatismChanged: {spyCatcher.spy26 = true }
-			onZoomed_plotChanged: {spyCatcher.spy27 = true }
+			function onCalcalltissuesChanged() {spyCatcher.spy1 = true }
+			function onCalcceilingChanged() {spyCatcher.spy2 = true }
+			function onCalcceiling3mChanged() {spyCatcher.spy3 = true }
+			function onCalcndlttsChanged() {spyCatcher.spy4 = true }
+			function onDcceilingChanged() {spyCatcher.spy5 = true }
+			function onEadChanged() {spyCatcher.spy8 = true }
+			function onGfhighChanged() {spyCatcher.spy9 = true }
+			function onGflowChanged() {spyCatcher.spy10 = true }
+			function onGf_low_at_maxdepthChanged() {spyCatcher.spy11 = true }
+			function onHrgraphChanged() {spyCatcher.spy12 = true }
+			function onModChanged() {spyCatcher.spy13 = true }
+			function onModpO2Changed() {spyCatcher.spy14 = true }
+			function onPercentagegraphChanged() {spyCatcher.spy15 = true }
+			function onRedceilingChanged() {spyCatcher.spy16 = true }
+			function onRulergraphChanged() {spyCatcher.spy17 = true }
+			function onShow_ccr_sensorsChanged() {spyCatcher.spy19 = true }
+			function onShow_ccr_setpointChanged() {spyCatcher.spy20 = true }
+			function onShow_icdChanged() {spyCatcher.spy21 = true }
+			function onShow_pictures_in_profileChanged() {spyCatcher.spy22 = true }
+			function onShow_sacChanged() {spyCatcher.spy23 = true }
+			function onShow_scr_ocpo2Changed() {spyCatcher.spy24 = true }
+			function onTankbarChanged() {spyCatcher.spy25 = true }
+			function onVpmb_conservatismChanged() {spyCatcher.spy26 = true }
+			function onZoomed_plotChanged() {spyCatcher.spy27 = true }
 		}
 	}
 
@@ -199,7 +192,6 @@ TestCase {
 		PrefTechnicalDetails.percentagegraph = ! PrefTechnicalDetails.percentagegraph
 		PrefTechnicalDetails.redceiling = ! PrefTechnicalDetails.redceiling
 		PrefTechnicalDetails.rulergraph = ! PrefTechnicalDetails.rulergraph
-		PrefTechnicalDetails.show_average_depth = ! PrefTechnicalDetails.show_average_depth
 		PrefTechnicalDetails.show_ccr_sensors = ! PrefTechnicalDetails.show_ccr_sensors
 		PrefTechnicalDetails.show_ccr_setpoint = ! PrefTechnicalDetails.show_ccr_setpoint
 		PrefTechnicalDetails.show_icd = ! PrefTechnicalDetails.show_icd
@@ -217,7 +209,6 @@ TestCase {
 		compare(spyCatcher.spy4, true)
 		compare(spyCatcher.spy4, true)
 		compare(spyCatcher.spy5, true)
-		compare(spyCatcher.spy7, true)
 		compare(spyCatcher.spy8, true)
 		compare(spyCatcher.spy9, true)
 		compare(spyCatcher.spy10, true)
@@ -228,7 +219,6 @@ TestCase {
 		compare(spyCatcher.spy15, true)
 		compare(spyCatcher.spy16, true)
 		compare(spyCatcher.spy17, true)
-		compare(spyCatcher.spy18, true)
 		compare(spyCatcher.spy19, true)
 		compare(spyCatcher.spy20, true)
 		compare(spyCatcher.spy21, true)

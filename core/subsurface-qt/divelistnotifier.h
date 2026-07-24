@@ -6,6 +6,10 @@
 #define DIVELISTNOTIFIER_H
 
 #include "core/dive.h"
+// filteredDiveSitesChanged() passes a std::vector<dive_site *>. core/dive.h only forward
+// declares dive_site, and moc generates a metatype array that needs the pointed-to type to
+// be complete - Qt 6.4 fails with "invalid application of 'sizeof' to incomplete type".
+#include "core/divesite.h"
 
 #include <QObject>
 

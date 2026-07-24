@@ -74,10 +74,13 @@ for TARGET_DIRECTORY subsurface
 
 Qt 6.7 and later tolerate this ordering, which is why it has never been seen.
 
-### 2.2 Unguarded use of a Qt 6.7+ API
+### 2.2 A Qt 6.7+ API guarded at the wrong version
 
 `QDateTimeEdit::setTimeZone()` was introduced in Qt 6.7. It is used at seven
-sites with no version guard and no `<QTimeZone>` include:
+sites, all of which *are* guarded — but with
+`#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)`, three minor releases too low. A
+correct `setTimeSpec()` fallback already exists in the `#else` branch of every
+one of them, so the only thing wrong is the threshold:
 
 - `desktop-widgets/importgps.cpp:19,20`
 - `desktop-widgets/tab-widgets/TabDiveNotes.cpp:33,34`
@@ -91,10 +94,11 @@ error: 'class QTimeEdit' has no member named 'setTimeZone'
 error: incomplete type 'QTimeZone' used in nested name specifier
 ```
 
-The omission is inconsistent rather than deliberate: the tree already guards a
-different API with `#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)` at ten sites
+The tree guards a different API correctly with
+`#if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)` at ten sites
 (`core/qthelper.cpp:481`, `qt-models/diveplannermodel.cpp:544,1483`,
-`desktop-widgets/simplewidgets.cpp:148,162,225` and others).
+`desktop-widgets/simplewidgets.cpp:148,162,225` and others), so this is a
+mistake in one specific check rather than a missing habit.
 
 ### 2.3 Incomplete type in a queued signal signature
 
@@ -633,6 +637,16 @@ appended from ~20 places.
 
 ### 6.3 Broken and dead build code
 
+- **The libgit2 Find module prefers the static library and then cannot link it.**
+  `cmake/Modules/FindLIBGIT2.cmake:27-35` lists `libgit2.a` ahead of `git2` in
+  `FIND_LIBRARY`, so a system carrying both `libgit2.so` and `libgit2.a` gets the
+  static archive. Line 39 then appends only `-lssl -lcrypto`, which is not enough
+  for a distribution-built static libgit2 — on Ubuntu 24.04 every executable fails
+  to link with
+  `undefined reference to symbol 'gss_indicate_mechs@@gssapi_krb5_2_MIT'`.
+  Found by building, not by reading. The dead LGTM hack at `CMakeLists.txt:576-579`
+  (`-lgssapi_krb5 -lhttp_parser`) is the fossil of someone hitting this once and
+  papering over it for a single CI provider.
 - **ASan is broken.** `CMakeLists.txt:133` reads `CMAKE_CXX_FLAGS` when setting
   `CMAKE_C_FLAGS`, so the C build inherits C++-only flags and loses its own, and
   `-fsanitize=address` is doubled. No linker flag is set, so ASan builds may not

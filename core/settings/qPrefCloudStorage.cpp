@@ -28,9 +28,12 @@ HANDLE_PREFERENCE_BOOL(CloudStorage, "cloud_auto_sync", cloud_auto_sync);
 void qPrefCloudStorage::set_cloud_base_url(const QString &value)
 {
 	if (value.toStdString() != prefs.cloud_base_url) {
-		// only free and set if not default
-		if (prefs.cloud_base_url != default_prefs.cloud_base_url)
-			prefs.cloud_base_url = value.toStdString();
+		// This used to skip the assignment whenever the current value was still
+		// the default one - a leftover from when these were C strings and freeing
+		// the static default would have crashed. With std::string it just meant
+		// that the very first change of the cloud URL was silently dropped while
+		// still emitting the signal and writing to disk.
+		prefs.cloud_base_url = value.toStdString();
 
 		disk_cloud_base_url(true);
 		emit instance()->cloud_base_urlChanged(value);

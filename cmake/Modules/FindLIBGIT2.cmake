@@ -24,18 +24,35 @@ IF ( LIBGIT2_DYNAMIC )
     SET( LIBGIT2_SO libgit2.so )
 ENDIF()
 
+# "git2" resolves through CMAKE_FIND_LIBRARY_SUFFIXES and so prefers the shared
+# library, which is what distributions ship. It has to come before the explicit
+# libgit2.a: listing the static archive first meant we picked it even on systems
+# that had a perfectly good shared libgit2 installed, and then failed to link
+# because a static libgit2 also needs all of its own dependencies named.
 FIND_LIBRARY( LIBGIT2_LIBRARIES
 NAMES
     ${LIBGIT2_SO}
-    libgit2.a
     git2
+    libgit2.a
 HINTS
     ${CMAKE_CURRENT_SOURCE_DIR}/../install-root/lib
     ${CMAKE_CURRENT_SOURCE_DIR}/../libgit2/build
 )
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-	SET(LIBGIT2_LIBRARIES ${LIBGIT2_LIBRARIES})
-else()
+
+if(LIBGIT2_LIBRARIES MATCHES "\\.a$")
+	# Static libgit2: ask pkg-config what it actually needs. Distribution builds
+	# pull in things like libssh2, libpcre2, libhttp_parser and GSSAPI, none of
+	# which we can sensibly guess.
+	find_package(PkgConfig QUIET)
+	if(PKG_CONFIG_FOUND)
+		pkg_check_modules(_LIBGIT2_PC QUIET libgit2)
+	endif()
+	if(_LIBGIT2_PC_STATIC_LDFLAGS)
+		SET(LIBGIT2_LIBRARIES ${LIBGIT2_LIBRARIES} ${_LIBGIT2_PC_STATIC_LDFLAGS})
+	elseif(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+		SET(LIBGIT2_LIBRARIES ${LIBGIT2_LIBRARIES} -lssl -lcrypto)
+	endif()
+elseif(NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	SET(LIBGIT2_LIBRARIES ${LIBGIT2_LIBRARIES} -lssl -lcrypto)
 endif()
 

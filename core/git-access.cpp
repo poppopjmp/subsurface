@@ -294,24 +294,25 @@ int credential_https_cb(git_cred **out,
 	return git_cred_userpass_plaintext_new(out, username.c_str(), password.c_str());
 }
 
-int certificate_check_cb(git_cert *cert, int valid, const char *host, void *)
+int certificate_check_cb(git_cert *, int valid, const char *host, void *)
 {
 	if (verbose)
 		report_info("git storage: certificate callback for host %s with validity %d\n", host, valid);
-	if ((same_string(host, CLOUD_HOST_GENERIC) ||
-	     same_string(host, CLOUD_HOST_US) ||
-	     same_string(host, CLOUD_HOST_U2) ||
-	     same_string(host, CLOUD_HOST_EU) ||
-	     same_string(host, CLOUD_HOST_E2)) &&
-			cert->cert_type == GIT_CERT_X509) {
-		// for some reason the LetsEncrypt certificate makes libgit2 throw up on some
-		// platforms but not on others
-		// if we are connecting to the cloud server we alrady called 'canReachCloudServer()'
-		// which will fail if the SSL certificate isn't valid, so let's simply always
-		// tell the caller that this certificate is valid
-		return 0;
+	// This used to return 0 unconditionally for the cloud hosts, on the grounds that
+	// canReachCloudServer() had already validated the certificate. That reasoning does
+	// not hold: canReachCloudServer() runs over a completely separate Qt network stack,
+	// on a different connection, and the git code proceeds even when it fails. The
+	// effect was that anyone able to intercept the connection could present their own
+	// certificate and collect the cloud password, which credential_https_cb() hands
+	// over in plain text - and that same password authorises deleting the account.
+	// If a specific CA ever needs help again, point libgit2 at a CA bundle with
+	// GIT_OPT_SET_SSL_CERT_LOCATIONS instead of disabling the check.
+	if (!valid) {
+		report_error("%s", translate("gettextFromC",
+					     "Refusing to connect: the server's certificate could not be verified"));
+		return -1;
 	}
-	return valid ? 0 : -1;
+	return 0;
 }
 
 static int update_remote(struct git_info *info, git_remote *origin, git_reference *local, git_reference *)
@@ -624,6 +625,20 @@ static std::string getProxyString()
 	return std::string();
 }
 
+// The proxy string embeds the proxy password, so it must never be written to the log -
+// on mobile the log is persisted and the UI offers to mail it to us.
+static std::string getRedactedProxyString()
+{
+	if (prefs.proxy_type == QNetworkProxy::HttpProxy) {
+		if (prefs.proxy_auth)
+			return format_string_std("http://%s:<redacted>@%s:%d", prefs.proxy_user.c_str(),
+					prefs.proxy_host.c_str(), prefs.proxy_port);
+		else
+			return format_string_std("http://%s:%d", prefs.proxy_host.c_str(), prefs.proxy_port);
+	}
+	return std::string();
+}
+
 /* this is (so far) only used by the git storage tests to remove a remote branch
  * it will print out errors, but not return an error (as this isn't a function that
  * we test as part of the tests, it's a helper to not leave loads of dead branches on
@@ -689,7 +704,7 @@ int sync_with_remote(struct git_info *info)
 	std::string proxy_string = getProxyString();
 	if (info->transport == RT_HTTPS && !proxy_string.empty()) {
 		if (verbose)
-			report_info("git storage: set proxy to \"%s\"\n", proxy_string.c_str());
+			report_info("git storage: set proxy to \"%s\"\n", getRedactedProxyString().c_str());
 		git_config_set_string(conf, "http.proxy", proxy_string.c_str());
 	} else {
 		if (verbose)
@@ -808,7 +823,7 @@ static int repository_create_cb(git_repository **out, const char *path, int bare
 	std::string proxy_string = getProxyString();
 	if (!proxy_string.empty()) {
 		if (verbose)
-			report_info("git storage: set proxy to \"%s\"\n", proxy_string.c_str());
+			report_info("git storage: set proxy to \"%s\"\n", getRedactedProxyString().c_str());
 		git_config_set_string(conf, "http.proxy", proxy_string.c_str());
 	} else {
 		if (verbose)

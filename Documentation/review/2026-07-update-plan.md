@@ -5,6 +5,28 @@ this one records what to do, in what order, and why that order.
 
 Finding IDs (`S1`, `C4`, `U2`, `M1`, `H1` ...) refer to the review.
 
+## Status
+
+Phase 0 and most of Phase 1 have been implemented and verified against a real
+Qt 6.4.2 build on Ubuntu 24.04 LTS: the tree configures, builds all 65 targets
+with zero errors, and `ctest` reports **32/32 passing**.
+
+Three things that only came out of actually building and running, rather than
+reading:
+
+- A **fourth** Qt6 blocker: `FindLIBGIT2.cmake` preferred `libgit2.a` over the
+  shared library and then could not link it (see review 6.3).
+- `tests/testdiveplannermodel.cpp` only compiled when `MAP_SUPPORT` was defined,
+  because that is the only path that pulled in `core/dive.h`. It fails on any
+  distro without QtLocation - which is exactly the LTS case the new CI leg
+  covers.
+- Un-stubbing `TestQML` (item 0.10) turned a permanently green no-op into
+  **47 real assertions** and exposed six genuine failures behind it, including a
+  real defect in `qPrefCloudStorage::set_cloud_base_url()` that silently
+  discarded the first change of the cloud URL.
+
+The remaining phases below are unchanged.
+
 ---
 
 ## 1. Guiding decisions

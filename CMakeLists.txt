@@ -127,10 +127,16 @@ if (SUBSURFACE_PROFILING_BUILD)
 	SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
 	SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -pg")
 endif()
-# set up ASan
+# set up ASan and UBSan
+# The C flags used to be built from CMAKE_CXX_FLAGS, so the C build inherited the C++
+# only options, lost its own, and ended up with -fsanitize=address twice. The sanitizers
+# also have to reach the link line or the runtime is never pulled in.
 if (SUBSURFACE_ASAN_BUILD)
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-	SET(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+	set(SUBSURFACE_SANITIZERS "-fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer")
+	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SUBSURFACE_SANITIZERS}")
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SUBSURFACE_SANITIZERS}")
+	SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${SUBSURFACE_SANITIZERS}")
+	SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${SUBSURFACE_SANITIZERS}")
 endif()
 
 # Compiler-specific warning flags
@@ -312,7 +318,23 @@ else()
 	add_definitions(-DMAP_SUPPORT)
 	set(MAPSUPPORT ON)
 endif()
-message(STATUS "building with Qt ${QT_VERSION}")
+
+# The oldest Qt we support, enforced below by the find_package() calls that actually
+# pull the components in. Without a floor those calls accept any Qt at all, so code
+# that needs a newer API fails at compile time - on a random subset of distros -
+# instead of failing here with a clear message.
+# Qt 6.4 is what the current Ubuntu LTS and Debian stable ship; anything newer than
+# that has to be behind a QT_VERSION_CHECK.
+if(USINGQT6)
+	set(QT_MIN_VERSION 6.4)
+else()
+	set(QT_MIN_VERSION 5.11)
+endif()
+if(QT_VERSION VERSION_LESS ${QT_MIN_VERSION})
+	message(FATAL_ERROR "Subsurface requires at least Qt ${QT_MIN_VERSION}, found ${QT_VERSION}")
+endif()
+
+message(STATUS "building with Qt ${QT_VERSION} (minimum ${QT_MIN_VERSION})")
 
 # Project Target specific configuration should go here,
 # if the configuration is too big or would disrupt the normal code flux,
@@ -533,21 +555,20 @@ if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
 endif()
 set(QT_FIND_COMPONENTS Core Concurrent Widgets Network Svg Positioning Quick ${QT_EXTRA_COMPONENTS})
 if (SUBSURFACE_TARGET_EXECUTABLE MATCHES "DesktopExecutable")
-	find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS ${QT_FIND_COMPONENTS} LinguistTools Test QuickTest)
+	find_package(Qt${QT_VERSION_MAJOR} ${QT_MIN_VERSION} REQUIRED COMPONENTS ${QT_FIND_COMPONENTS} LinguistTools Test QuickTest)
 elseif (SUBSURFACE_TARGET_EXECUTABLE MATCHES "MobileExecutable")
 	if(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
-		find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS ${QT_FIND_COMPONENTS} LinguistTools)
+		find_package(Qt${QT_VERSION_MAJOR} ${QT_MIN_VERSION} REQUIRED COMPONENTS ${QT_FIND_COMPONENTS} LinguistTools)
 	else()
-		find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS ${QT_FIND_COMPONENTS} LinguistTools Test QuickTest)
+		find_package(Qt${QT_VERSION_MAJOR} ${QT_MIN_VERSION} REQUIRED COMPONENTS ${QT_FIND_COMPONENTS} LinguistTools Test QuickTest)
 	endif()
 elseif (SUBSURFACE_TARGET_EXECUTABLE MATCHES "DownloaderExecutable")
-	# let's pick a version that's not ancient
-	find_package(Qt${QT_VERSION_MAJOR} 5.11 REQUIRED COMPONENTS ${QT_FIND_COMPONENTS})
+	find_package(Qt${QT_VERSION_MAJOR} ${QT_MIN_VERSION} REQUIRED COMPONENTS ${QT_FIND_COMPONENTS})
 	set(BUILD_TESTS OFF)
 elseif (SUBSURFACE_TARGET_EXECUTABLE MATCHES "CLI")
 	# CLI needs these Qt components for subsurface_corelib dependencies
 	set(QT_FIND_COMPONENTS Core Concurrent Gui Network Widgets)
-	find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS ${QT_FIND_COMPONENTS})
+	find_package(Qt${QT_VERSION_MAJOR} ${QT_MIN_VERSION} REQUIRED COMPONENTS ${QT_FIND_COMPONENTS})
 	set(BUILD_TESTS OFF)
 endif()
 
@@ -571,11 +592,6 @@ if (NOT SUBSURFACE_TARGET_EXECUTABLE MATCHES "DownloaderExecutable" AND NOT SUBS
 		qt5_add_resources(SUBSURFACE_RESOURCES subsurface.qrc profile.qrc stats/statsicons.qrc map-widget/qml/map-widget.qrc desktop-widgets/qml/statsview2.qrc)
 		set(SUBSURFACE_MAPWIDGET subsurface_mapwidget)
 	endif()
-endif()
-
-# hack to build successfully on LGTM
-if(DEFINED ENV{LGTM_SRC})
-	LIST(APPEND SUBSURFACE_LINK_LIBRARIES -lgssapi_krb5 -lhttp_parser)
 endif()
 
 # include translations

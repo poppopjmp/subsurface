@@ -38,10 +38,20 @@ jobs:
         libtool libusb-1.0-0-dev libxml2-dev libxslt1-dev libzip-dev make \
         pkg-config xvfb libbluetooth-dev libmtp-dev libraw-dev mdbtools-dev \
         libqt6qml6 libqt6quick6 qt6-svg-dev libqt6svg6 qt6-5compat-dev \
-        qml6-module-qtpositioning qml6-module-qtlocation \
-        qmake6 qt6-location-dev qt6-connectivity-dev qt6-base-private-dev \
+        qml6-module-qtpositioning \
+        qmake6 qt6-connectivity-dev qt6-base-private-dev \
         qml6-module-qtquick qt6-declarative-dev qt6-tools-dev qt6-tools-dev-tools \
-        qt6-positioning-dev qt6-declarative-private-dev qt6-shadertools-dev
+        qt6-positioning-dev qt6-declarative-private-dev qt6-shadertools-dev \
+        qml6-module-qtqml-workerscript qml6-module-qtquick-window \
+        qml6-module-qttest qml6-module-qtquick-controls \
+        qml6-module-qtquick-templates qml6-module-qtquick-layouts
+
+        # QtLocation was only reintroduced in Qt 6.5, so it is missing on the LTS
+        # distros that ship Qt 6.4. It is optional in the build (it only gates
+        # MAP_SUPPORT), so install it when it exists and carry on when it does not.
+        DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
+        qt6-location-dev qml6-module-qtlocation || \
+        echo "QtLocation unavailable - building without map support"
 
         git config --global user.email "ci@subsurface-divelog.org"
         git config --global user.name "Subsurface CI"

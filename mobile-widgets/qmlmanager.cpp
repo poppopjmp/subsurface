@@ -86,7 +86,11 @@ static void progressCallback(const std::string &text)
 	QMLManager *self = QMLManager::instance();
 	if (self) {
 		QString s = QString::fromStdString(text);
-		self->setProgressMessage(s);
+		// libdivecomputer calls this from the download thread, and
+		// setProgressMessage() writes a member that backs a Q_PROPERTY the QML
+		// engine reads on the UI thread. Hop threads the same way showError()
+		// above does instead of writing it from here.
+		QMetaObject::invokeMethod(self, [self, s]() { self->setProgressMessage(s); }, Qt::AutoConnection);
 	}
 }
 
@@ -732,7 +736,8 @@ bool QMLManager::verifyCredentials(QString email, QString password, QString pin)
 	if (pin.isEmpty())
 		appendTextToLog(QStringLiteral("verify credentials for email %1 (no PIN)").arg(email));
 	else
-		appendTextToLog(QStringLiteral("verify credentials for email %1 PIN %2").arg(email, pin));
+		// the PIN is a credential - the app log is persisted and can be mailed to us
+		appendTextToLog(QStringLiteral("verify credentials for email %1 (with PIN)").arg(email));
 	CloudStorageAuthenticate *csa = new CloudStorageAuthenticate(this);
 	csa->backend(email, password, pin);
 	// let's wait here for the signal to avoid too many more nested functions
@@ -2248,7 +2253,7 @@ void QMLManager::exportToWEB(export_types type, QString userId, QString password
 			uploadDiveShare::instance()->doUpload(false, userId, anonymize);
 			break;
 		default:
-			report_info("upload to unknown type %d using %s/%s remove names %d", static_cast<int>(type), qPrintable(userId), qPrintable(password), anonymize);
+			report_info("upload to unknown type %d using %s remove names %d", static_cast<int>(type), qPrintable(userId), anonymize);
 			break;
 	}
 }

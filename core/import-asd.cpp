@@ -509,9 +509,20 @@ static int asd_dive_parser(const std::string &input, struct dive *asd_dive, stru
 
 		if (dc_fam == DC_FAMILY_UWATEC_ALADIN) {
 			std::size_t pos = uchar_find(tmp, dc_profile_begin, 4);
+			if (pos == std::string::npos || pos + 4 > tmp.size())
+				goto bailout;
 			tmp = tmp.substr(pos + 4);
 		}
-		size = uchar_find(tmp, str_seq, 3); // size of DC data
+		{
+			// uchar_find() returns npos when the marker is not there. That was
+			// passed straight into build_dc_data()'s int parameter, where it
+			// became -1 and ended up as a memcpy() length. Anything shorter than
+			// the sample offset underflows "max - ASD_SAMPLES" the same way.
+			std::size_t dc_size = uchar_find(tmp, str_seq, 3); // size of DC data
+			if (dc_size == std::string::npos || dc_size < ASD_SAMPLES || dc_size > tmp.size())
+				goto bailout;
+			size = (int)dc_size;
+		}
 		dc_data = build_dc_data(dc_model, dc_fam, tmp.data(), size, &s);
 		if (!dc_data)
 			goto bailout;

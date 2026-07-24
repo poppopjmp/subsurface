@@ -173,7 +173,7 @@ jobs:
         if [ ${{ matrix.qtversion }} = '5' ]; then
           UI_TOOLKIT_ARG="-build-with-webkit"
         else
-          UI_TOOLKIT_ARG="-build-with-qt6"
+          UI_TOOLKIT_ARG="-build-with-qt6 -build-tests"
         fi
         bash -e -x ./subsurface/scripts/build.sh -desktop ${UI_TOOLKIT_ARG} -ftdi -make-package -install-docs ${BUILD_EXTRA_ARGS}
         REG_IMG=$(grep ^created: mp.log | tail -1 | cut -b10-)
@@ -197,6 +197,17 @@ jobs:
         fi
         echo "Created $IMG"
         echo "dmg=$IMG" >> $GITHUB_OUTPUT
+
+    # Until now the QTest suite only ever ran on Linux, so anything that broke in a
+    # macOS specific code path went unnoticed until someone hit it by hand.
+    - name: test desktop build
+      if: matrix.qtversion != 5
+      run: |
+        cd ${GITHUB_WORKSPACE}/../build/tests
+        export QT_ROOT=$(pwd)/../../Qt/${{ matrix.qtversion }}/macos
+        export QT_QPA_PLATFORM_PLUGIN_PATH=$QT_ROOT/plugins
+        export PATH=$QT_ROOT/bin:$PATH
+        ctest --output-on-failure
 
     - name: build and test subsurface-cli
       if: matrix.arch == 'arm64' && matrix.qtversion != 5

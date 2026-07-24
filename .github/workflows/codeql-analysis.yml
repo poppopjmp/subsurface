@@ -52,14 +52,14 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y -q \
         autoconf automake cmake g++ git libcrypto++-dev libcurl4-gnutls-dev \
-        libgit2-dev libqt5qml5 libqt5quick5 libqt5svg5-dev \
-        libqt5webkit5-dev libsqlite3-dev libssh2-1-dev libssl-dev libssl-dev \
+        libgit2-dev libsqlite3-dev libssh2-1-dev libssl-dev \
         libtool libusb-1.0-0-dev libxml2-dev libxslt1-dev libzip-dev make \
-        pkg-config qml-module-qtlocation qml-module-qtpositioning \
-        qml-module-qtquick2 qt5-qmake qtchooser qtconnectivity5-dev \
-        qtdeclarative5-dev qtdeclarative5-private-dev qtlocation5-dev \
-        qtpositioning5-dev qtscript5-dev qttools5-dev qttools5-dev-tools \
-        qtquickcontrols2-5-dev xvfb libbluetooth-dev libmtp-dev libraw-dev
+        pkg-config xvfb libbluetooth-dev libmtp-dev libraw-dev \
+        qt6-base-dev qt6-base-private-dev qt6-declarative-dev \
+        qt6-declarative-private-dev qt6-svg-dev qt6-tools-dev \
+        qt6-tools-dev-tools qt6-positioning-dev qt6-connectivity-dev \
+        qt6-5compat-dev qt6-multimedia-dev libqt6opengl6-dev \
+        qml6-module-qtquick qml6-module-qtpositioning
 
     - name: set environment variables
       id: set-variables
@@ -79,12 +79,14 @@ jobs:
 
     - name: Build
       env:
-        MAKEFLAGS: "j${{ steps.set-variables.outputs.number-cores }}"
+        MAKEFLAGS: "-j${{ steps.set-variables.outputs.number-cores }}"
       run: |
         cd ..
         git config --global --add safe.directory $GITHUB_WORKSPACE
         git config --global --add safe.directory $GITHUB_WORKSPACE/libdivecomputer
-        bash -e -x subsurface/scripts/build.sh -desktop -build-with-webkit
+        # analyse the configuration we actually ship: the Qt5/WebKit build left
+        # every QT_VERSION_CHECK(6, ...) code path unscanned
+        bash -e -x subsurface/scripts/build.sh -desktop -build-with-qt6
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4

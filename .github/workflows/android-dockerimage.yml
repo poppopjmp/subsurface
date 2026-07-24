@@ -16,7 +16,7 @@ jobs:
   android-build-container:
     runs-on: ubuntu-latest
     env:
-      VERSION: 6.10.3-2 # the version number is based on the Qt version
+      VERSION: 6.10.3-3 # the version number is based on the Qt version
 
     steps:
     - uses: actions/checkout@v7
@@ -37,7 +37,7 @@ jobs:
         cp ./scripts/get-dep-lib.sh ./scripts/docker/android-build-container/
 
     - name: Build and Publish Linux Docker image to Dockerhub
-      uses: elgohr/Publish-Docker-Github-Action@v5
+      uses: elgohr/Publish-Docker-Github-Action@4f0f7c9e4ac72db902c5142ffbbb4655d2d3dd3c # v5
       with:
         name:       ${{ steps.build_name.outputs.NAME }}
         username:   ${{ secrets.DOCKER_USERNAME }}

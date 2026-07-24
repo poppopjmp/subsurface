@@ -60,7 +60,8 @@ android {
     defaultConfig {
         applicationId project.findProperty("subsurfaceApplicationId") ?: "org.subsurfacedivelog.mobile"
         minSdkVersion 28
-        targetSdkVersion 35
+        // Google Play requires new apps and updates to target API 36 from 2026-08-31
+        targetSdkVersion 36
     }
 
     sourceSets {

@@ -24,7 +24,7 @@ CheckCloudConnection::CheckCloudConnection(QObject *parent) :
 }
 
 // two free APIs to figure out where we are
-#define GET_EXTERNAL_IP_API "http://api.ipify.org"
+#define GET_EXTERNAL_IP_API "https://api.ipify.org"
 #define GET_CONTINENT_API "http://ip-api.com/line/%1?fields=continent"
 
 // our own madeup API to make sure we are talking to a Subsurface cloud server

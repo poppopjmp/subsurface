@@ -56,10 +56,39 @@ set(US_EN_PLURALS subsurface_en_US.ts)
 
 if(USINGQT6)
 	file(GLOB MOBILE_SOURCES ${CMAKE_SOURCE_DIR}/mobile-widgets/*.cpp ${CMAKE_SOURCE_DIR}/mobile-widgets/qml/*.qml)
-	qt_add_translations(${SUBSURFACE_TARGET} TS_FILES ${TRANSLATION_FILES} PLURALS_TS_FILE ${US_EN_PLURALS} SOURCES ${MOBILE_SOURCES} QM_FILES_OUTPUT_VARIABLE TRANSLATIONS)
-	add_custom_target(translations ALL)
-	# use add_dependencies (not DEPENDS) so the name is treated as a target, not a file
-	add_dependencies(translations ${PROJECT_NAME}_lrelease)
+
+	# qt_add_translations() cannot be used here. It calls qt_add_lrelease(), which does
+	#     set_source_files_properties(... TARGET_DIRECTORY ${target} ...)
+	# immediately, so the target has to exist already - but the top level CMakeLists.txt
+	# adds this directory well before the executable target is created. Qt >= 6.8 happens
+	# to tolerate that ordering, Qt 6.4 and 6.5 (what the current Ubuntu LTS and Debian
+	# stable ship) fail to configure with
+	#     set_source_files_properties given non-existent target for TARGET_DIRECTORY
+	#
+	# qt_add_lupdate() only refers to the target through generator expressions, which are
+	# evaluated after the whole project has been processed, so it is safe to call here and
+	# still provides the update_translations target that
+	# scripts/updatetranslationsource.sh drives.
+	qt_add_lupdate(${SUBSURFACE_TARGET}
+		TS_FILES ${TRANSLATION_FILES}
+		SOURCES ${MOBILE_SOURCES})
+
+	# Drive lrelease ourselves: this has no target dependency and behaves identically on
+	# every Qt6 release. The .qm names follow lrelease's own convention, so the resulting
+	# file list is the same one qt_add_translations() would have reported.
+	set(TRANSLATIONS "")
+	foreach(_ts_file ${TRANSLATION_FILES} ${US_EN_PLURALS})
+		get_filename_component(_ts_name ${_ts_file} NAME_WE)
+		set(_qm_file ${CMAKE_CURRENT_BINARY_DIR}/${_ts_name}.qm)
+		add_custom_command(OUTPUT ${_qm_file}
+			COMMAND ${QT_CMAKE_EXPORT_NAMESPACE}::lrelease
+				${CMAKE_CURRENT_SOURCE_DIR}/${_ts_file} -qm ${_qm_file}
+			DEPENDS ${QT_CMAKE_EXPORT_NAMESPACE}::lrelease ${CMAKE_CURRENT_SOURCE_DIR}/${_ts_file}
+			COMMENT "Generating ${_ts_name}.qm"
+			VERBATIM)
+		list(APPEND TRANSLATIONS ${_qm_file})
+	endforeach()
+	add_custom_target(translations ALL DEPENDS ${TRANSLATIONS})
 else()
 	qt5_add_translation(TRANSLATIONS ${TRANSLATION_FILES} ${US_EN_PLURALS})
 	add_custom_target(translations ALL DEPENDS ${TRANSLATIONS})

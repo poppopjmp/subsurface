@@ -18,7 +18,7 @@ You can get the sources to the latest development version from our git
 repository:
 
 ```
-git clone http://github.com/Subsurface/subsurface.git
+git clone https://github.com/Subsurface/subsurface.git
 cd subsurface
 git submodule init # this will give you our flavor of libdivecomputer
 ```

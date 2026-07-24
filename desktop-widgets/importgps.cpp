@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 #include "desktop-widgets/importgps.h"
 #include "core/subsurface-time.h"
+#include <QTimeZone>
 
 /* Import dive coordinates from a GPS device and synchronise them with the dive profile information
    of a dive computer. This file contains the infrastructure to:
@@ -15,7 +16,7 @@ ImportGPS::ImportGPS(QWidget *parent, QString fileName, class Ui::LocationInform
 	fileName(fileName), LocationUI(LocationUI)
 {
 	ui.setupUi(this);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
 	ui.timeZoneEdit->setTimeZone(QTimeZone::systemTimeZone());
 	ui.timeDiffEdit->setTimeZone(QTimeZone::systemTimeZone());
 #else

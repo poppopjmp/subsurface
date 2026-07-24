@@ -313,7 +313,7 @@ jobs:
             -DLIBDIVECOMPUTER_LIBRARIES="$installPrefix\lib\libdivecomputer.lib" `
             -DLIBGIT2_INCLUDE_DIR="$vcpkgInstalled\include" `
             -DLIBGIT2_LIBRARIES="$vcpkgInstalled\lib\git2.lib" `
-            -DMAKE_TESTS=OFF `
+            -DBUILD_TESTS=ON `
             -DNO_USERMANUAL=OFF `
             -DINSTALL_DOCS=ON
 
@@ -324,6 +324,15 @@ jobs:
         run: |
           Push-Location "${{ github.workspace }}\build"
           ninja
+          Pop-Location
+
+      # The previous -DMAKE_TESTS=OFF was not a real option - the switch is
+      # BUILD_TESTS - so this pipeline never built or ran the test suite at all.
+      - name: Run tests
+        shell: pwsh
+        run: |
+          Push-Location "${{ github.workspace }}\build\tests"
+          ctest --output-on-failure
           Pop-Location
 
       # ---------------------------------------------------------------

@@ -29,6 +29,17 @@
 		QTextStream outS(&out); \
 		QStringList readin = orgS.readAll().split("\n"); \
 		QStringList written = outS.readAll().split("\n"); \
+		/* A file that ends in a newline splits into a trailing empty element. \
+		 * Whether the reference happens to have that final newline is not \
+		 * something these tests are checking, so drop it on both sides. */ \
+		if (!readin.isEmpty() && readin.last().isEmpty()) \
+			readin.removeLast(); \
+		if (!written.isEmpty() && written.last().isEmpty()) \
+			written.removeLast(); \
+		/* Compare the line counts first. Looping while both lists are non-empty \
+		 * stops at the shorter of the two, so a truncated - or entirely empty - \
+		 * output file used to compare equal to its reference. */ \
+		QCOMPARE(written.size(), readin.size()); \
 		while (readin.size() && written.size()) { \
 			QCOMPARE(written.takeFirst().trimmed(), \
 				readin.takeFirst().trimmed()); \

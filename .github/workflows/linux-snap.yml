@@ -39,7 +39,7 @@ jobs:
         echo "CICD-pull-request" > latest-subsurface-buildnumber-extension
 
     - name: Set up LXD
-      uses: canonical/setup-lxd@main
+      uses: canonical/setup-lxd@da2ac84e727dc534215fd14cd088b9209d65893b # main as of 2026-07
 
     - name: Set up CCache
       id: setup-ccache
@@ -65,7 +65,7 @@ jobs:
         path: ~/.ccache/**
 
     - name: Build and verify the snap
-      uses: canonical/actions/build-snap@release
+      uses: canonical/actions/build-snap@cb345b48c77065507280f3dd9d4f42299af2d1a6 # release as of 2026-07
       id: build-snap
       with:
         setup-lxd: false

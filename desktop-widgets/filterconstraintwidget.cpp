@@ -15,6 +15,7 @@
 #include <QListWidget>
 #include <QPushButton>
 #include <QTimeEdit>
+#include <QTimeZone>
 
 // Helper function to get enums through Qt's variants
 template<typename T>
@@ -68,7 +69,7 @@ static QDateEdit *makeDateEdit()
 {
 	QDateEdit *res = new QDateEdit;
 	res->setCalendarPopup(true);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
 	res->setTimeZone(QTimeZone::utc());
 #else
 	res->setTimeSpec(Qt::UTC);
@@ -80,7 +81,7 @@ static QDateEdit *makeDateEdit()
 static QTimeEdit *makeTimeEdit()
 {
 	QTimeEdit *res = new QTimeEdit;
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
 	res->setTimeZone(QTimeZone::utc());
 #else
 	res->setTimeSpec(Qt::UTC);

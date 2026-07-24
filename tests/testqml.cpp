@@ -7,11 +7,10 @@
 // main loosely copied from QUICK_TEST_MAIN_WITH_SETUP macro
 int main(int argc, char **argv)
 {
-//#if QT_VERSION < QT_VERSION_CHECK(5, 11, 0)
-#ifndef THIS_IS_REPAIRED
-	return 0;
-#else
+	// QTEST_ADD_GPU_BLACKLIST_SUPPORT was removed in Qt6
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 	QTEST_ADD_GPU_BLACKLIST_SUPPORT
+#endif
 	QTEST_SET_MAIN_SOURCE_PATH
 	QMLTestSetup setup;
 
@@ -19,7 +18,6 @@ int main(int argc, char **argv)
 	qPref::registerQML(NULL);
 
 	return quick_test_main_with_setup(argc, argv, "TestQML", nullptr, &setup);
-#endif //QT_VERSION
 }
 
 void QMLTestSetup::qmlEngineAvailable(QQmlEngine *engine)

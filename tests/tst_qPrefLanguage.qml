@@ -52,14 +52,14 @@ TestCase {
 
 		Connections {
 			target: PrefLanguage
-			onDate_formatChanged: {spyCatcher.spy1 = true }
-			onDate_format_overrideChanged: {spyCatcher.spy2 = true }
-			onDate_format_shortChanged: {spyCatcher.spy3 = true }
-			onLanguageChanged: {spyCatcher.spy4 = true }
-			onLang_localeChanged: {spyCatcher.spy5 = true }
-			onTime_formatChanged: {spyCatcher.spy6 = true }
-			onTime_format_overrideChanged: {spyCatcher.spy7 = true }
-			onUse_system_languageChanged: {spyCatcher.spy8 = true }
+			function onDate_formatChanged() {spyCatcher.spy1 = true }
+			function onDate_format_overrideChanged() {spyCatcher.spy2 = true }
+			function onDate_format_shortChanged() {spyCatcher.spy3 = true }
+			function onLanguageChanged() {spyCatcher.spy4 = true }
+			function onLang_localeChanged() {spyCatcher.spy5 = true }
+			function onTime_formatChanged() {spyCatcher.spy6 = true }
+			function onTime_format_overrideChanged() {spyCatcher.spy7 = true }
+			function onUse_system_languageChanged() {spyCatcher.spy8 = true }
 		}
 	}
 

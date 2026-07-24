@@ -10,6 +10,7 @@
 #include <QDesktopServices>
 #include <QToolTip>
 #include <QCompleter>
+#include <QTimeZone>
 
 #include "core/file.h"
 #include "core/filterpreset.h"
@@ -106,7 +107,7 @@ ShiftTimesDialog::ShiftTimesDialog(std::vector<dive *> dives_in, QWidget *parent
 	when(0), dives(std::move(dives_in))
 {
 	ui.setupUi(this);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
 	ui.timeEdit->setTimeZone(QTimeZone::systemTimeZone());
 #else
 	ui.timeEdit->setTimeSpec(Qt::LocalTime);

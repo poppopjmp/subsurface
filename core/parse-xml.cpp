@@ -967,7 +967,11 @@ static void try_to_fill_sample(struct sample *sample, const char *name, char *bu
 		return;
 	if (MATCH("setpoint.sample", double_to_o2pressure, &sample->setpoint))
 		return;
-	if (MATCH("ppo2.sample", double_to_o2pressure, &sample->o2sensor[state->next_o2_sensor])) {
+	// A sample can carry at most MAX_O2_SENSORS ppo2 values. Without this check a file
+	// with more <ppo2> elements than that in a single <sample> writes past the end of
+	// sample->o2sensor[] and on through the rest of the struct.
+	if (state->next_o2_sensor < MAX_O2_SENSORS &&
+	    MATCH("ppo2.sample", double_to_o2pressure, &sample->o2sensor[state->next_o2_sensor])) {
 		state->next_o2_sensor++;
 		return;
 	}

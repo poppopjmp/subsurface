@@ -265,20 +265,24 @@ Lt_String::~Lt_String()
  * It is stored as a plain ascii sequence of chars (e.g. "a5a50eff..."); this
  * function process an string in such format  and returns a buffer with bytes.
  */
-extern "C" bool lt_convert_profile(unsigned char *input, unsigned char *output)
+extern "C" bool lt_convert_profile(unsigned char *input, unsigned char *output, size_t output_size)
 {
 	unsigned char *runner = input;
-	int i = 0;
+	size_t i = 0;
 
 	if (!runner || !*runner)
 		return false;
 
-	while (runner && *runner) {
+	// Each output byte consumes two input characters. Stopping only on *runner meant
+	// that an odd number of characters read runner[1] past the terminating NUL and
+	// then kept going, while i could also run past the end of output.
+	while (runner[0] && runner[1] && i < output_size) {
 		output[i] = ( ASCII_CHR_TO_BYTE(runner[0]) << 4 ) + ASCII_CHR_TO_BYTE(runner[1]);
 		i++;
 		runner += 2;
 	}
-	return true;
+	// a trailing half byte means the input was malformed
+	return runner[0] == 0;
 }
 
 /*
@@ -538,9 +542,11 @@ int logtrak_import(const std::string &mem, struct divelog *log)
 		std::string d(ltd_dive);
 		if (!d.empty() && !is_null(d)) {
 			d = lt_remove_quotes(d);
-			int prf_size = (int)ceil(d.length() / 2);
+			// ceil() on an int division never rounded anything up, so an odd
+			// length left the buffer one byte short of what the conversion writes
+			size_t prf_size = (d.length() + 1) / 2;
 			std::vector<unsigned char> prf_buffer(prf_size);
-			if (!lt_convert_profile(reinterpret_cast<unsigned char *>(d.data()), prf_buffer.data()))
+			if (!lt_convert_profile(reinterpret_cast<unsigned char *>(d.data()), prf_buffer.data(), prf_size))
 				report_error("[lt_convert_profile] FAILED for dive %d\n", lt_dive->number);
 			free(ltd_dive);
 			int dc_model = 0;
@@ -561,10 +567,10 @@ int logtrak_import(const std::string &mem, struct divelog *log)
 				// Libdc checks buffer's byte #43 to know which model to use, and fails if
 				// it's not set to 0x80, but has Galileo TMX data set. Thus we need to
 				// ensure this byte value, as some Galileo devices didn't set it.
-				if (dc_model == 0x19)
+				if (dc_model == 0x19 && prf_size > 43)
 					prf_buffer[43] = 0x80;
 
-				libdc_buffer_parser(lt_dive.get(), devdata.get(), prf_buffer.data(), prf_size);
+				libdc_buffer_parser(lt_dive.get(), devdata.get(), prf_buffer.data(), (int)prf_size);
 
 				lt_dive->dcs[0].serial = ltd_dc_id;
 				Lt_String soft(ltd_dc_soft);

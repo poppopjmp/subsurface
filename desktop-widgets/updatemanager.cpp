@@ -3,6 +3,7 @@
 #include "core/qthelper.h"
 #include <QtNetwork>
 #include <QMessageBox>
+#include <QUrl>
 #include <QUuid>
 #include "desktop-widgets/subsurfacewebservices.h"
 #include "core/version.h"
@@ -68,6 +69,15 @@ void UpdateManager::requestReceived()
 		QString responseLink;
 		if (responseBody.contains('"'))
 			responseLink = responseBody.split("\"").at(1);
+		// The message below is shown as rich text, so anything coming off the wire
+		// has to be escaped before it is pasted into the markup - otherwise the
+		// server, or anyone able to intercept this connection, decides what the
+		// dialog says and where its "download it" link points. Keep responseBody
+		// itself untouched, the checks further down look for literal quotes.
+		QUrl linkUrl(responseLink);
+		if (!linkUrl.isValid() || (linkUrl.scheme() != "http" && linkUrl.scheme() != "https"))
+			responseLink.clear();
+		responseLink = responseLink.toHtmlEscaped();
 
 		msgbox.setIcon(QMessageBox::Information);
 		if (responseBody == "OK") {
@@ -92,7 +102,7 @@ void UpdateManager::requestReceived()
 				haveNewVersion = true;
 			if (responseBody.contains("Newest release version is "))
 				responseBody.replace("Newest release version is ", tr("Newest release version is "));
-			msgText = tr("The server returned the following information:").append("<br/><br/>").append(responseBody);
+			msgText = tr("The server returned the following information:").append("<br/><br/>").append(responseBody.toHtmlEscaped());
 			msgbox.setIcon(QMessageBox::Warning);
 		}
 	}

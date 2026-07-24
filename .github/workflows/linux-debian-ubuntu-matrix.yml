@@ -40,6 +40,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # LTS distros ship Qt 6.4. Keep these in the matrix so that code needing a
+          # newer Qt has to be guarded rather than silently breaking the build for
+          # everyone on a long term support release.
+          - name: "Ubuntu 24.04 / Qt 6"
+            container: ubuntu:24.04
+          - name: "Debian bookworm / Qt 6"
+            container: debian:bookworm
           - name: "Ubuntu 25.10 / Qt 6"
             container: ubuntu:25.10
           - name: "Ubuntu 25.10 / Qt 6 / ARM64"

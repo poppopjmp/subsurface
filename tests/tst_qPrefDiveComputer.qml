@@ -33,10 +33,10 @@ TestCase {
 
 		Connections {
 			target: PrefDiveComputer
-			onDeviceChanged: {spyCatcher.spy1 = true }
-			onDevice_nameChanged: {spyCatcher.spy2 = true }
-			onProductChanged: {spyCatcher.spy4 = true }
-			onVendorChanged: {spyCatcher.spy5 = true }
+			function onDeviceChanged() {spyCatcher.spy1 = true }
+			function onDevice_nameChanged() {spyCatcher.spy2 = true }
+			function onProductChanged() {spyCatcher.spy4 = true }
+			function onVendorChanged() {spyCatcher.spy5 = true }
 		}
 	}
 

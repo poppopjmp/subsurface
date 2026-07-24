@@ -30,9 +30,15 @@ TestCase {
 //TBD		PrefUnits.temperature = ??
 //TBD		compare(PrefUnits.temperature, ??)
 
-		var x7 = PrefUnits.unit_system
-		PrefUnits.unit_system = "metric" 
-		compare(PrefUnits.unit_system, "metric")
+		// unit_system is deliberately not exercised here. Its type,
+		// unit_system_values (core/pref.h), has no Q_ENUM/Q_DECLARE_METATYPE, so
+		// QML cannot marshal it and every write through PrefUnits is rejected.
+		// The QML facing API for this is Backend.unit_system, whose enum is
+		// registered in mobile-widgets/qmlinterface.h, and the preference itself
+		// is covered by tests/testqPrefUnits.cpp.
+		// The old assignment of the string "metric" passed only because a
+		// rejected write leaves a plain JavaScript property on the wrapper, which
+		// then reads back the value that was just written.
 
 //TBD		var x8 = PrefUnits.vertical_speed_time
 //TBD		PrefUnits.vertical_speed_time = ??
@@ -52,23 +58,19 @@ TestCase {
 
 		property bool spy1 : false
 		property bool spy5 : false
-		property bool spy7 : false
 
 		Connections {
 			target: PrefUnits
-			onCoordinates_traditionalChanged: {spyCatcher.spy1 = true }
-			onShow_units_tableChanged: {spyCatcher.spy5 = true }
-			onUnit_systemChanged: {spyCatcher.spy7 = true }
+			function onCoordinates_traditionalChanged() {spyCatcher.spy1 = true }
+			function onShow_units_tableChanged() {spyCatcher.spy5 = true }
 		}
 	}
 
 	function test_signals() {
 		PrefUnits.coordinates_traditional = ! PrefUnits.coordinates_traditional
 		PrefUnits.show_units_table = ! PrefUnits.show_units_table
-		PrefUnits.unit_system = "qml" 
 
 		compare(spyCatcher.spy1, true)
 		compare(spyCatcher.spy5, true)
-		compare(spyCatcher.spy7, true)
 	}
 }

@@ -48,6 +48,9 @@ done
 
 # finally, build and install Kirigami
 # any extra arguments (e.g. cross-compilation flags) are forwarded to cmake
+# PLATFORM was never assigned here, so this always fell through to the 4 job
+# fallback and Kirigami built far slower than it needed to
+PLATFORM=$(uname)
 if [[ ${PLATFORM} == "Linux" ]]; then
 	NUM_CORES="$(nproc)"
 elif [[ ${PLATFORM} == "Darwin" ]]; then

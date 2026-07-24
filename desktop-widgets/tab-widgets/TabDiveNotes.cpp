@@ -17,6 +17,7 @@
 
 #include <QCompleter>
 #include <QMessageBox>
+#include <QTimeZone>
 
 struct Completers {
 	QCompleter *diveguide;
@@ -29,7 +30,7 @@ TabDiveNotes::TabDiveNotes(MainTab *parent) : TabBase(parent),
 	currentTrip(0)
 {
 	ui.setupUi(this);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
 	ui.dateEdit->setTimeZone(QTimeZone::utc());
 	ui.timeEdit->setTimeZone(QTimeZone::utc());
 #else

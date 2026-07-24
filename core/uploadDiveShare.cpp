@@ -34,9 +34,9 @@ void uploadDiveShare::doUpload(bool selected, const QString &uid, bool noPublic)
 	//Request to server
 	QNetworkRequest request;
 	if (noPublic)
-		request.setUrl(QUrl("http://dive-share.appspot.com/upload?private=true"));
+		request.setUrl(QUrl("https://dive-share.appspot.com/upload?private=true"));
 	else
-		request.setUrl(QUrl("http://dive-share.appspot.com/upload"));
+		request.setUrl(QUrl("https://dive-share.appspot.com/upload"));
 	request.setRawHeader("User-Agent", getUserAgent().toUtf8());
 	if (uid.length() != 0)
 		request.setRawHeader("X-UID", uid.toUtf8());

@@ -43,12 +43,12 @@ TestCase {
 
 		Connections {
 			target: PrefProxy
-			onProxy_authChanged: {spyCatcher.spy1 = true }
-			onProxy_hostChanged: {spyCatcher.spy2 = true }
-			onProxy_passChanged: {spyCatcher.spy3 = true }
-			onProxy_portChanged: {spyCatcher.spy4 = true }
-			onProxy_typeChanged: {spyCatcher.spy5 = true }
-			onProxy_userChanged: {spyCatcher.spy6 = true }
+			function onProxy_authChanged() {spyCatcher.spy1 = true }
+			function onProxy_hostChanged() {spyCatcher.spy2 = true }
+			function onProxy_passChanged() {spyCatcher.spy3 = true }
+			function onProxy_portChanged() {spyCatcher.spy4 = true }
+			function onProxy_typeChanged() {spyCatcher.spy5 = true }
+			function onProxy_userChanged() {spyCatcher.spy6 = true }
 		}
 	}
 

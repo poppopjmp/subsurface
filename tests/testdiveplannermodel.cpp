@@ -3,6 +3,7 @@
 #include "qt-models/diveplannermodel.h"
 #include "core/subsurfacestartup.h"
 #include "commands/command.h"
+#include "core/dive.h"
 #include "core/divelog.h"
 #include <QSignalSpy>
 #include <memory>

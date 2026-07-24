@@ -32,7 +32,7 @@ jobs:
         echo "NAME=$GITHUB_REPOSITORY_OWNER/mxe-build${b}:${v}" >> $GITHUB_OUTPUT
 
     - name: Build and Publish Linux Docker image to Dockerhub
-      uses: elgohr/Publish-Docker-Github-Action@v5
+      uses: elgohr/Publish-Docker-Github-Action@4f0f7c9e4ac72db902c5142ffbbb4655d2d3dd3c # v5
       with:
         name:       ${{ steps.build_name.outputs.NAME }}
         username:   ${{ secrets.DOCKER_USERNAME }}

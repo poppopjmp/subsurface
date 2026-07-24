@@ -7,7 +7,7 @@
 #include <QNetworkAccessManager>
 
 #define DIVESHARE_WEBSITE "dive-share.appspot.com"
-#define DIVESHARE_BASE_URI "http://" DIVESHARE_WEBSITE
+#define DIVESHARE_BASE_URI "https://" DIVESHARE_WEBSITE
 
 namespace Ui {
 class DiveShareExportDialog;

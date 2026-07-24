@@ -68,6 +68,8 @@ static char *to_utf8(unsigned char *in_string)
 	outlen = inlen * 2 + 1;
 
 	char *out_string = (char *)calloc(outlen, 1);
+	if (!out_string)
+		return NULL;
 	for (i = 0; i < inlen; i++) {
 		if (in_string[i] < 127) {
 			out_string[j] = in_string[i];
@@ -80,7 +82,9 @@ static char *to_utf8(unsigned char *in_string)
 		}
 		j++;
 	}
-	out_string[j + 1] = '\0';
+	// Every input byte produces at most two output bytes, so j can reach inlen * 2 -
+	// writing the terminator at j + 1 was one past the end of the allocation. calloc()
+	// already zeroed the buffer, so there is nothing to do here at all.
 	return out_string;
 }
 
@@ -533,7 +537,13 @@ static char *dt_dive_parser(unsigned char *runner, struct dive *dt_dive, struct 
 	 * Profile parsing, only if we have a profile and a dc model.
 	 * If just a profile, skip parsing and seek the buffer to the end of dive.
 	 */
+	// profile_length is a 16 bit field straight out of the file and dt_libdc_buffer()
+	// memcpy()s that many bytes out of membuf. The bound was only enforced by the
+	// JUMP() further down, i.e. after the copy had already happened.
+	CHECK(membuf, profile_length);
 	if (profile_length != 0 && libdc_model != 0) {
+		// membuf[23] is read below for the nitrox/O2 mix
+		CHECK(membuf, 24);
 		compl_buffer = (unsigned char *) calloc(18 + profile_length, 1);
 		rc = dt_libdc_buffer(membuf, profile_length, libdc_model, compl_buffer);
 		if (rc == DC_STATUS_SUCCESS) {
@@ -593,11 +603,21 @@ static int wlog_header_parser (std::string &mem)
 #define SUIT_LENGTH 26
 static void wlog_compl_parser(std::string &wl_mem, struct dive *dt_dive, int dcount)
 {
-	int tmp = 0, offset = 12 + (dcount * 850),
-	    pos_weight =  offset + 256,
-	    pos_viz = offset + 258,
-	    pos_tank_init = offset + 266,
-	    pos_suit = offset + 268;
+	// dcount comes from the dive count in the .log header and the record size is
+	// fixed, so the whole record has to fit inside the .add file. Nothing else here
+	// consults wl_mem.size(), so without this a .log claiming a large number of dives
+	// made every read below run off the end of a much smaller .add buffer.
+	// Use size_t throughout: dcount * 850 overflows a signed int for large counts.
+	size_t offset = 12 + (size_t)dcount * 850;
+	size_t record_end = offset + SUIT_LENGTH + 268;
+	if (dcount < 0 || record_end > wl_mem.size())
+		return;
+
+	int tmp = 0;
+	size_t pos_weight = offset + 256,
+	       pos_viz = offset + 258,
+	       pos_tank_init = offset + 266,
+	       pos_suit = offset + 268;
 	char *wlog_notes = NULL, *wlog_suit = NULL;
 	unsigned char *runner = (unsigned char *) wl_mem.data();
 
