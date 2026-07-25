@@ -113,6 +113,7 @@ target_link_libraries(
 
 # SSRF test cases (TBD, convert to standard qTest setup)
 TEST(TestUnitConversion testunitconversion.cpp)
+TEST(TestDiveComparison testdivecomparison.cpp)
 TEST(TestProfile testprofile.cpp)
 TEST(TestGpsCoords testgpscoords.cpp)
 TEST(TestParse testparse.cpp)
