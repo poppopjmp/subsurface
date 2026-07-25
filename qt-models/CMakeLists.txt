@@ -7,6 +7,8 @@ set(SUBSURFACE_GENERIC_MODELS_LIB_SRCS
 	cleanertablemodel.h
 	completionmodels.cpp
 	completionmodels.h
+	divecomparisonmodel.cpp
+	divecomparisonmodel.h
 	cylindermodel.cpp
 	cylindermodel.h
 	diveimportedmodel.cpp

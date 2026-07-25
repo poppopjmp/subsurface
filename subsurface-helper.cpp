@@ -25,6 +25,7 @@
 #include "mobile-widgets/statsmanager.h"
 #include "stats/chartlistmodel.h"
 #include "qt-models/divesummarymodel.h"
+#include "qt-models/divecomparisonmodel.h"
 #include "qt-models/messagehandlermodel.h"
 #include "qt-models/mobilelistmodel.h"
 #include "profile-widget/qmlprofile.h"
@@ -247,6 +248,7 @@ static void register_qml_types(QQmlEngine *engine)
 	register_qml_type<QMLProfile>("QMLProfile");
 	register_qml_type<DiveImportedModel>("DCImportModel");
 	register_qml_type<DiveSummaryModel>("DiveSummaryModel");
+	register_qml_type<DiveComparisonModel>("DiveComparisonModel");
 	register_qml_type<ChartListModel>("ChartListModel");
 #endif // not SUBSURFACE_MOBILE
 

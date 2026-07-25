@@ -28,6 +28,7 @@
 		<file>DivePlannerEdit.qml</file>
 		<file>DivePlannerSetup.qml</file>
 		<file>DivePlannerGasCalculator.qml</file>
+		<file>DiveComparison.qml</file>
 		<file>DiveSummary.qml</file>
 		<file>Export.qml</file>
 		<file>HintsTextEdit.qml</file>

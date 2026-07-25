@@ -7,6 +7,7 @@
  */
 #include "qt-models/filtermodels.h"
 #include "desktop-widgets/modeldelegates.h"
+#include "desktop-widgets/divecomparisondialog.h"
 #include "desktop-widgets/mainwindow.h"
 #include "core/selection.h"
 #include "core/subsurface-qt/divelistnotifier.h"
@@ -595,6 +596,24 @@ static bool can_merge(const struct dive *a, const struct dive *b, enum asked_use
 	return true;
 }
 
+void DiveListView::compareWithPlan()
+{
+	std::vector<dive *> selection = getDiveSelection();
+	if (selection.size() != 2)
+		return;
+
+	// The planned dive is the earlier of the two: a plan is made before the
+	// dive it describes. If they are simultaneous the selection order stands.
+	dive *plan = selection[0];
+	dive *actual = selection[1];
+	if (actual->when < plan->when)
+		std::swap(plan, actual);
+
+	DiveComparisonDialog dialog(this);
+	dialog.setDives(plan, actual);
+	dialog.exec();
+}
+
 void DiveListView::mergeDives()
 {
 	enum asked_user have_asked = NOTYET;
@@ -802,6 +821,9 @@ void DiveListView::contextMenuEvent(QContextMenuEvent *event)
 	}
 	if (amount_selected > 1 && consecutive_selected())
 		popup.addAction(tr("Merge selected dives"), this, &DiveListView::mergeDives);
+	// Comparing needs exactly two dives: the plan and the dive that was made.
+	if (amount_selected == 2)
+		popup.addAction(tr("Compare plan with dive"), this, &DiveListView::compareWithPlan);
 	if (amount_selected >= 1) {
 		popup.addAction(tr("Add dive(s) to arbitrary trip","",amount_selected), this, &DiveListView::addDivesToTrip);
 		popup.addAction(tr("Renumber dive(s)","",amount_selected), this, &DiveListView::renumberDives);

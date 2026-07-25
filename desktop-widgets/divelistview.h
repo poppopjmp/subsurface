@@ -48,6 +48,7 @@ slots:
 	void addToTripAbove();
 	void addToTripBelow();
 	void mergeDives();
+	void compareWithPlan();
 	void splitDives();
 	void renumberDives();
 	void addDivesToTrip();
