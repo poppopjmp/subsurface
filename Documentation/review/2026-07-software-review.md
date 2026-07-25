@@ -764,7 +764,7 @@ What remains:
 
 | API | Occurrences | Qt6 status |
 |---|---:|---|
-| `QDesktopWidget` | 2 call sites (`mainwindow.cpp:817-818`, `locationinformation.cpp:629`) | **Removed in Qt6** — hard blocker |
+| `QDesktopWidget` | 0 unguarded. **Correction:** both sites (`mainwindow.cpp:821-822`, `locationinformation.cpp:629`) are already inside `#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)` with `QScreen` equivalents in the `#else`. Confirmed by the Qt6 build compiling. | Already handled — not a blocker |
 | `QtWebKitWidgets`/`QWebView` | `printer.cpp:26-28`, `usermanual.cpp:79` | Unavailable on Qt6; QLiteHtml path exists but is not at parity |
 | String-based `SIGNAL`/`SLOT` connects | 114 across 21 files | Works, but loses compile-time checking (557 modern connects already) |
 | `QMouseEvent::pos()` unguarded | 11 sites | Deprecated; 5 sites in `profilewidget2.cpp` are already correctly guarded |

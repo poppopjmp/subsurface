@@ -269,8 +269,10 @@ consumer remains.
 Order matters, because the blockers are release-pipeline blockers, not code
 blockers:
 
-1. **Port the two `QDesktopWidget` call sites** (`mainwindow.cpp:817-818`,
-   `locationinformation.cpp:629`) to `QScreen`. Removed in Qt6; hard blocker.
+1. ~~Port the two `QDesktopWidget` call sites to `QScreen`.~~ **Already done.**
+   Both are guarded with `#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)` and have
+   `QScreen` equivalents; the review was wrong to list this as a blocker, and the
+   Qt6 build compiling confirms it.
 2. **Bring QLiteHtml to parity with QtWebKit** for printing and the user manual
    (`desktop-widgets/printer.cpp`, `usermanual.cpp`), then delete the `#else`
    WebKit branch. This is the single thing keeping QtWebKit alive.

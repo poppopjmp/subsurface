@@ -244,8 +244,13 @@ else()
 	pkg_config_library(LIBZIP libzip REQUIRED)
 endif()
 
-if(NOT ANDROID AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS" AND NOT SUBSURFACE_TARGET_EXECUTABLE STREQUAL "CLI")
-	if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if(NOT ANDROID AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	# Bluetooth is a UI level feature, so the CLI does not need it. libusb, libmtp
+	# and libraw are a different matter: the code that uses them is compiled into
+	# subsurface_corelib, which the CLI links, so skipping their discovery for a
+	# CLI build just moved the failure to link time with undefined LIBMTP_*
+	# symbols.
+	if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT SUBSURFACE_TARGET_EXECUTABLE STREQUAL "CLI")
 		pkg_config_library(BLUEZ bluez REQUIRED)
 	endif()
 	if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
