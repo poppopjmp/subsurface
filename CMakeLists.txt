@@ -313,6 +313,16 @@ if(QT_VERSION_MAJOR STREQUAL "6")
 	# build the module from source; so let's look if the user has installed
 	# it (or if a newer version is out that includes it, anyway)
 	find_package(Qt6 COMPONENTS Location)
+	if(NOT Qt6Location_FOUND)
+		# Losing the map is a visible difference from the Qt5 build, which always
+		# has it, so say so loudly rather than as one STATUS line among hundreds.
+		# QtLocation was dropped for the first Qt6 releases and only came back in
+		# Qt 6.5, so this is what an LTS distro on Qt 6.4 gets.
+		message(WARNING
+			"Qt6Location was not found: building WITHOUT map support. "
+			"The Qt5 build always has maps, so this build is not feature "
+			"equivalent with it. QtLocation returned in Qt 6.5.")
+	endif()
 	if(Qt6Location_FOUND)
 		message(STATUS "Found Qt6Location")
 		LIST(APPEND QT_EXTRA_COMPONENTS Location)
@@ -404,7 +414,16 @@ if (SUBSURFACE_TARGET_EXECUTABLE MATCHES "DesktopExecutable")
 			LIST(APPEND SUBSURFACE_LINK_LIBRARIES Qt5::WebKitWidgets)
 			message(STATUS "building with QtWebKit")
 		else()
-			message(STATUS "didn't find QtWebKit or QLiteHtml, building without user manual and printing support")
+			# Neither engine was found, so this build quietly loses two features
+			# the other desktop builds have. scripts/build.sh builds QLiteHtml for
+			# a Qt6 desktop build, so this normally only happens when cmake is
+			# invoked directly - which is easy to do and easy not to notice.
+			message(WARNING
+				"Neither QLiteHtml nor QtWebKit was found: building WITHOUT "
+				"printing and WITHOUT the built-in user manual. This build is "
+				"not feature equivalent with the released ones. Use "
+				"scripts/build.sh, which builds QLiteHtml, or pass "
+				"-DNO_PRINTING=ON -DNO_USERMANUAL=ON to say you meant it.")
 			add_definitions(-DNO_PRINTING)
 			add_definitions(-DNO_USERMANUAL)
 			set(NO_PRINTING ON)
