@@ -151,7 +151,7 @@ struct dive_or_trip {
 	struct dive_trip *trip;
 };
 
-extern void cylinder_renumber(struct dive &dive, int mapping[]);
+extern void cylinder_renumber(struct dive &dive, int mapping[], size_t mapping_size);
 extern int same_gasmix_cylinder(const cylinder_t &cyl, int cylid, const struct dive *dive, bool check_unused);
 extern bool is_cylinder_use_appropriate(const struct divecomputer &dc, const cylinder_t &cyl, bool allowNonUsable);
 extern divemode_t get_effective_divemode(const struct divecomputer &dc, const struct cylinder_t &cylinder);

@@ -31,6 +31,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <QMutex>
+#include <QMutexLocker>
 
 //#define DEBUG_GAS 1
 
@@ -844,16 +845,6 @@ static void calculate_ndl_tts(struct deco_state *ds, const struct dive *dive, st
 
 QMutex planLock;
 
-static void lock_planner()
-{
-	planLock.lock();
-}
-
-static void unlock_planner()
-{
-	planLock.unlock();
-}
-
 /* Let's try to do some deco calculations.
  */
 static void calculate_deco_information(struct deco_state *ds, const struct deco_state *planner_ds, const struct dive *dive,
@@ -873,7 +864,11 @@ static void calculate_deco_information(struct deco_state *ds, const struct deco_
 		ds->first_ceiling_pressure = planner_ds->first_ceiling_pressure;
 	}
 	deco_state_cache cache_data_initial;
-	lock_planner();
+	// This critical section runs for a couple of hundred lines and does vector
+	// and std::string work, so it can throw. With the hand written lock/unlock
+	// pair an exception skipped the unlock and left the planner deadlocked for
+	// the rest of the session.
+	QMutexLocker planLocker(&planLock);
 	/* For VPM-B outside the planner, cache the initial deco state for CVA iterations */
 	if (pref_deco_mode(in_planner) == VPMB) {
 		cache_data_initial.cache(ds);
@@ -1046,7 +1041,6 @@ static void calculate_deco_information(struct deco_state *ds, const struct deco_
 #if DECO_CALC_DEBUG & 1
 	dump_tissues(ds);
 #endif
-	unlock_planner();
 }
 
 /* Sort the o2 pressure values. There are so few that a simple bubble sort

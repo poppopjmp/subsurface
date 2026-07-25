@@ -44,6 +44,7 @@
 #endif
 
 #include <libxslt/documents.h>
+#include <libxslt/security.h>
 
 std::string existing_filename;
 static QLocale loc;
@@ -220,10 +221,36 @@ static xmlDocPtr get_stylesheet_doc(const xmlChar *uri, xmlDictPtr, int, void *,
 	return doc;
 }
 
+// The stylesheets themselves are ours - get_stylesheet_doc() only ever loads from
+// the ":/xslt" resource - but the documents they are applied to come from whatever
+// file the user opened. Close off the routes a transform has to write files or
+// reach the network.
+//
+// READ_FILE is deliberately left alone: several of our stylesheets pull in
+// commonTemplates.xsl with xsl:include, and libxslt consults this preference when
+// it resolves that, so forbidding it stops the stylesheets from parsing at all.
+// Arbitrary reads are already prevented by xsltSetLoaderFunc() below, which hard
+// prefixes every request with ":/xslt/".
+static void setup_xslt_security()
+{
+	static xsltSecurityPrefsPtr sec = nullptr;
+	if (sec)
+		return;
+	sec = xsltNewSecurityPrefs();
+	if (!sec)
+		return;
+	xsltSetSecurityPrefs(sec, XSLT_SECPREF_WRITE_FILE, xsltSecurityForbid);
+	xsltSetSecurityPrefs(sec, XSLT_SECPREF_CREATE_DIRECTORY, xsltSecurityForbid);
+	xsltSetSecurityPrefs(sec, XSLT_SECPREF_READ_NETWORK, xsltSecurityForbid);
+	xsltSetSecurityPrefs(sec, XSLT_SECPREF_WRITE_NETWORK, xsltSecurityForbid);
+	xsltSetDefaultSecurityPrefs(sec);
+}
+
 xsltStylesheetPtr get_stylesheet(const char *name)
 {
 	// this needs to be done only once, but doesn't hurt to run every time
 	xsltSetLoaderFunc(get_stylesheet_doc);
+	setup_xslt_security();
 
 	// get main document:
 	xmlDocPtr doc = get_stylesheet_doc((const xmlChar *)name, NULL, 0, NULL, XSLT_LOAD_START);

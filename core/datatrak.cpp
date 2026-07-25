@@ -569,7 +569,11 @@ static char *dt_dive_parser(unsigned char *runner, struct dive *dt_dive, struct 
 		dt_dive->dcs[0].deviceid = 0;
 	else
 		dt_dive->dcs[0].deviceid = 0xffffffff;
-	if (!is_SCR && dt_dive->cylinders.size() > 0) {
+	// The cylinder size comes from the file and is routinely zero for a dive
+	// that has no tank data, which made this an integer division by zero and
+	// killed the process with SIGFPE. Found by fuzzing.
+	if (!is_SCR && dt_dive->cylinders.size() > 0 &&
+	    dt_dive->get_cylinder(0)->type.size.mliter > 0) {
 		dt_dive->get_cylinder(0)->end.mbar = dt_dive->get_cylinder(0)->start.mbar -
 			((dt_dive->get_cylinder(0)->gas_used.mliter / dt_dive->get_cylinder(0)->type.size.mliter) * 1000);
 	}

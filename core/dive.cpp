@@ -146,14 +146,14 @@ int dive_getUniqID()
 	return maxId;
 }
 
-static void dc_cylinder_renumber(struct dive &dive, struct divecomputer &dc, const int mapping[]);
+static void dc_cylinder_renumber(struct dive &dive, struct divecomputer &dc, const int mapping[], size_t mapping_size);
 
 /* copy dive computer list and renumber the cylinders */
-static void copy_dc_renumber(struct dive &d, const struct dive &s, const int cylinders_map[])
+static void copy_dc_renumber(struct dive &d, const struct dive &s, const int cylinders_map[], size_t cylinders_map_size)
 {
 	for (const divecomputer &dc: s.dcs) {
 		d.dcs.push_back(dc);
-		dc_cylinder_renumber(d, d.dcs.back(), cylinders_map);
+		dc_cylinder_renumber(d, d.dcs.back(), cylinders_map, cylinders_map_size);
 	}
 }
 
@@ -1157,15 +1157,16 @@ static void merge_one_sample(const struct sample &sample, struct divecomputer &d
 	append_sample(sample, &dc);
 }
 
-static void sensors_renumber_last_sample(struct divecomputer &dc, const int mapping[]);
-static void sensors_renumber(struct sample &s, const struct sample *next, const int mapping[]);
+static void sensors_renumber_last_sample(struct divecomputer &dc, const int mapping[], size_t mapping_size);
+static void sensors_renumber(struct sample &s, const struct sample *next, const int mapping[], size_t mapping_size);
 
 /*
  * Merge samples. Dive 'a' is "offset" seconds before Dive 'b'
  */
 static void merge_samples(struct divecomputer &res,
 			  const struct divecomputer &a, const struct divecomputer &b,
-			  const int *cylinders_map_a, const int *cylinders_map_b,
+			  const int *cylinders_map_a, size_t cylinders_map_a_size,
+			  const int *cylinders_map_b, size_t cylinders_map_b_size,
 			  int offset)
 {
 	auto as = a.samples.begin();
@@ -1185,6 +1186,7 @@ static void merge_samples(struct divecomputer &res,
 		std::swap(as, bs);
 		std::swap(a_end, b_end);
 		std::swap(cylinders_map_a, cylinders_map_b);
+		std::swap(cylinders_map_a_size, cylinders_map_b_size);
 	}
 
 	for (;;) {
@@ -1199,7 +1201,7 @@ static void merge_samples(struct divecomputer &res,
 		if (bt < 0) {
 		add_sample_a:
 			merge_one_sample(*as, res);
-			sensors_renumber_last_sample(res, cylinders_map_a);
+			sensors_renumber_last_sample(res, cylinders_map_a, cylinders_map_a_size);
 			as++;
 			continue;
 		}
@@ -1210,7 +1212,7 @@ static void merge_samples(struct divecomputer &res,
 			struct sample sample = *bs;
 			sample.time.seconds += offset;
 			merge_one_sample(sample, res);
-			sensors_renumber_last_sample(res, cylinders_map_b);
+			sensors_renumber_last_sample(res, cylinders_map_b, cylinders_map_b_size);
 			bs++;
 			continue;
 		}
@@ -1223,7 +1225,7 @@ static void merge_samples(struct divecomputer &res,
 		/* same-time sample: add a merged sample. Take the non-zero ones */
 		struct sample sample = *bs;
 		sample.time.seconds += offset;
-		sensors_renumber(sample, nullptr, cylinders_map_b);
+		sensors_renumber(sample, nullptr, cylinders_map_b, cylinders_map_b_size);
 		if (as->depth.mm)
 			sample.depth = as->depth;
 		if (as->temperature.mkelvin)
@@ -1231,6 +1233,11 @@ static void merge_samples(struct divecomputer &res,
 		for (int j = 0; j < MAX_SENSORS; ++j) {
 			int sensor_id;
 
+			// as->sensor[j] is an index out of the log, so it is not
+			// necessarily a cylinder this dive actually has.
+			if (as->sensor[j] < 0 ||
+			    static_cast<size_t>(as->sensor[j]) >= cylinders_map_a_size)
+				continue;
 			sensor_id = cylinders_map_a[as->sensor[j]];
 			if (sensor_id < 0)
 				continue;
@@ -1288,7 +1295,8 @@ static void merge_extra_data(struct divecomputer &res,
 
 static void merge_tank_sensor_mappings(struct divecomputer &res,
                          const struct divecomputer &src1_in, const struct divecomputer &src2_in,
-                         const int *cylinders_map1, const int *cylinders_map2,
+                         const int *cylinders_map1, size_t cylinders_map1_size,
+                         const int *cylinders_map2, size_t cylinders_map2_size,
 			 int offset)
 {
 	/* If two cylinders are merged and both have a sensor assigned, use the sensor associated with the earliest part of the log */
@@ -1297,6 +1305,7 @@ static void merge_tank_sensor_mappings(struct divecomputer &res,
 	if (offset < 0) {
 		std::swap(src1, src2);
 		std::swap(cylinders_map1, cylinders_map2); // The pointers, not the contents are swapped.
+		std::swap(cylinders_map1_size, cylinders_map2_size);
 	}
 
 	res.tank_sensor_mappings.clear();
@@ -1311,6 +1320,11 @@ static void merge_tank_sensor_mappings(struct divecomputer &res,
 			}
 			continue;
 		}
+		// cylinder_index comes from the log and can point past the end of
+		// the mapping, which is only as long as the dive's cylinder list.
+		if (mapping.cylinder_index < 0 ||
+		    static_cast<size_t>(mapping.cylinder_index) >= cylinders_map2_size)
+			continue;
 		res.tank_sensor_mappings.push_back(tank_sensor_mapping {
 			mapping.sensor_id,
 			(unsigned int)cylinders_map2[mapping.cylinder_index]
@@ -1326,6 +1340,9 @@ static void merge_tank_sensor_mappings(struct divecomputer &res,
 			}
 			continue;
 		}
+		if (mapping.cylinder_index < 0 ||
+		    static_cast<size_t>(mapping.cylinder_index) >= cylinders_map1_size)
+			continue;
 		res.tank_sensor_mappings.push_back(tank_sensor_mapping {
 			mapping.sensor_id,
 			(unsigned int)cylinders_map1[mapping.cylinder_index]
@@ -1367,12 +1384,13 @@ static int same_gas(const struct event *a, const struct event *b)
 	return false;
 }
 
-static void event_renumber(struct event &ev, const int mapping[]);
+static void event_renumber(struct event &ev, const int mapping[], size_t mapping_size);
 static void add_initial_gaschange(struct dive &dive, struct divecomputer &dc, int offset, int idx);
 
 static void merge_events(struct dive &d, struct divecomputer &res,
 			 const struct divecomputer &src1_in, const struct divecomputer &src2_in,
-			 const int *cylinders_map1, const int *cylinders_map2,
+			 const int *cylinders_map1, size_t cylinders_map1_size,
+			 const int *cylinders_map2, size_t cylinders_map2_size,
 			 int offset)
 {
 	const struct event *last_gas = NULL;
@@ -1384,6 +1402,7 @@ static void merge_events(struct dive &d, struct divecomputer &res,
 		offset = -offset;
 		std::swap(src1, src2);
 		std::swap(cylinders_map1, cylinders_map2); // The pointers, not the contents are swapped.
+		std::swap(cylinders_map1_size, cylinders_map2_size);
 	}
 
 	auto a = src1->events.begin();
@@ -1393,6 +1412,7 @@ static void merge_events(struct dive &d, struct divecomputer &res,
 		int s = 0;
 		const struct event *pick;
 		const int *cylinders_map;
+		size_t cylinders_map_size;
 		int event_offset;
 
 		if (b == src2->events.end())
@@ -1416,12 +1436,14 @@ pick_a:
 			++a;
 			event_offset = 0;
 			cylinders_map = cylinders_map1;
+			cylinders_map_size = cylinders_map1_size;
 		} else {
 pick_b:
 			pick = &*b;
 			++b;
 			event_offset = offset;
 			cylinders_map = cylinders_map2;
+			cylinders_map_size = cylinders_map2_size;
 		}
 
 		/*
@@ -1437,7 +1459,7 @@ pick_b:
 		/* Add it to the target list */
 		res.events.push_back(*pick);
 		res.events.back().time.seconds += event_offset;
-		event_renumber(res.events.back(), cylinders_map);
+		event_renumber(res.events.back(), cylinders_map, cylinders_map_size);
 	}
 
 	/* If the initial cylinder of a divecomputer was remapped, add a gas change event to that cylinder */
@@ -1465,12 +1487,16 @@ static void add_initial_gaschange(struct dive &dive, struct divecomputer &dc, in
 	add_gas_switch_event(&dive, &dc, offset, idx);
 }
 
-static void sensors_renumber(struct sample &s, const struct sample *prev, const int mapping[])
+static void sensors_renumber(struct sample &s, const struct sample *prev, const int mapping[], size_t mapping_size)
 {
 	for (int j = 0; j < MAX_SENSORS; j++) {
 		int sensor = NO_SENSOR;
 
-		if (s.sensor[j] != NO_SENSOR)
+		// s.sensor[j] is an index straight out of the log and can name a
+		// cylinder this dive does not have; the mapping is only as long as
+		// the cylinder list.
+		if (s.sensor[j] != NO_SENSOR && s.sensor[j] >= 0 &&
+		    static_cast<size_t>(s.sensor[j]) < mapping_size)
 			sensor = mapping[s.sensor[j]];
 		if (sensor == NO_SENSOR) {
 			// Remove sensor and gas pressure info
@@ -1487,24 +1513,37 @@ static void sensors_renumber(struct sample &s, const struct sample *prev, const 
 	}
 }
 
-static void sensors_renumber_last_sample(struct divecomputer &dc, const int mapping[])
+static void sensors_renumber_last_sample(struct divecomputer &dc, const int mapping[], size_t mapping_size)
 {
 	if (dc.samples.empty())
 		return;
 	sample *prev = dc.samples.size() > 1 ? &dc.samples[dc.samples.size() - 2] : nullptr;
-	sensors_renumber(dc.samples.back(), prev, mapping);
+	sensors_renumber(dc.samples.back(), prev, mapping, mapping_size);
 }
 
-static void event_renumber(struct event &ev, const int mapping[])
+static void event_renumber(struct event &ev, const int mapping[], size_t mapping_size)
 {
 	if (!ev.is_gaschange())
 		return;
 	if (ev.gas.index < 0)
 		return;
+	// gas.index comes out of the dive log and is not guaranteed to name a
+	// cylinder the dive actually has - dives/test-tank-sensor-mapping.xml has a
+	// gas change to cylinder 2 on a dive with one cylinder. The mapping array is
+	// only as long as the source dive's cylinder list, so this used to read past
+	// the end of it, and the value it happened to find there is what the merged
+	// output was built from.
+	//
+	// Resolve an index we cannot map to the dive's first cylinder. That keeps the
+	// result deterministic and in bounds, and for the corrupt-index case it is the
+	// only cylinder we know exists. Whether such an event would be better dropped
+	// entirely is a dive-data question rather than a memory-safety one.
+	if (static_cast<size_t>(ev.gas.index) >= mapping_size)
+		ev.gas.index = 0;
 	ev.gas.index = mapping[ev.gas.index];
 }
 
-static void dc_tank_sensor_mappings_renumber(struct divecomputer &dc, const int mapping[])
+static void dc_tank_sensor_mappings_renumber(struct divecomputer &dc, const int mapping[], size_t mapping_size)
 {
 	for (auto it = dc.tank_sensor_mappings.begin(); it != dc.tank_sensor_mappings.end();) {
 		// Preserve the "no sensors mapped" sentinel (sensor_id == NO_SENSOR)
@@ -1514,6 +1553,11 @@ static void dc_tank_sensor_mappings_renumber(struct divecomputer &dc, const int 
 			continue;
 		}
 
+		if ((*it).cylinder_index < 0 ||
+		    static_cast<size_t>((*it).cylinder_index) >= mapping_size) {
+			it = dc.tank_sensor_mappings.erase(it);
+			continue;
+		}
 		int cylinder_index = mapping[(*it).cylinder_index];
 		if (cylinder_index < 0) {
 			// Cylinder was removed, remove the mapping
@@ -1527,13 +1571,13 @@ static void dc_tank_sensor_mappings_renumber(struct divecomputer &dc, const int 
 	}
 }
 
-static void dc_cylinder_renumber(struct dive &dive, struct divecomputer &dc, const int mapping[])
+static void dc_cylinder_renumber(struct dive &dive, struct divecomputer &dc, const int mapping[], size_t mapping_size)
 {
-	dc_tank_sensor_mappings_renumber(dc, mapping);
+	dc_tank_sensor_mappings_renumber(dc, mapping, mapping_size);
 
 	/* Remap the gas change indices */
 	for (auto &ev: dc.events)
-		event_renumber(ev, mapping);
+		event_renumber(ev, mapping, mapping_size);
 
 	/* If the initial cylinder of a dive was remapped, add a gas change event to that cylinder */
 	if (mapping[0] > 0)
@@ -1548,10 +1592,10 @@ static void dc_cylinder_renumber(struct dive &dive, struct divecomputer &dc, con
  * Also note that we assume that the initial cylinder is cylinder 0,
  * so if that got renamed, we need to create a fake gas change event
  */
-void cylinder_renumber(struct dive &dive, int mapping[])
+void cylinder_renumber(struct dive &dive, int mapping[], size_t mapping_size)
 {
 	for (auto &dc: dive.dcs)
-		dc_cylinder_renumber(dive, dc, mapping);
+		dc_cylinder_renumber(dive, dc, mapping, mapping_size);
 }
 
 int same_gasmix_cylinder(const cylinder_t &cyl, int cylid, const struct dive *dive, bool check_unused)
@@ -2241,7 +2285,8 @@ static void copy_dive_computer(struct divecomputer &res, const struct divecomput
  */
 static void interleave_dive_computers(struct dive &res,
 				      const struct dive &a, const struct dive &b,
-				      const int cylinders_map_a[], const int cylinders_map_b[])
+				      const int cylinders_map_a[], size_t cylinders_map_a_size,
+				      const int cylinders_map_b[], size_t cylinders_map_b_size)
 {
 	res.dcs.clear();
 	for (const auto &dc1: a.dcs) {
@@ -2251,15 +2296,15 @@ static void interleave_dive_computers(struct dive &res,
 		const divecomputer *match = find_matching_computer(dc1, b);
 		if (match) {
 			int offset = match->when - dc1.when;
-			merge_events(res, newdc, dc1, *match, cylinders_map_a, cylinders_map_b, offset);
-			merge_samples(newdc, dc1, *match, cylinders_map_a, cylinders_map_b, offset);
+			merge_events(res, newdc, dc1, *match, cylinders_map_a, cylinders_map_a_size, cylinders_map_b, cylinders_map_b_size, offset);
+			merge_samples(newdc, dc1, *match, cylinders_map_a, cylinders_map_a_size, cylinders_map_b, cylinders_map_b_size, offset);
 			merge_extra_data(newdc, dc1, *match);
-			merge_tank_sensor_mappings(newdc, dc1, *match, cylinders_map_a, cylinders_map_b, offset);
+			merge_tank_sensor_mappings(newdc, dc1, *match, cylinders_map_a, cylinders_map_a_size, cylinders_map_b, cylinders_map_b_size, offset);
 			/* Use the diveid of the later dive! */
 			if (offset > 0)
 				newdc.diveid = match->diveid;
 		} else {
-			dc_cylinder_renumber(res, res.dcs.back(), cylinders_map_a);
+			dc_cylinder_renumber(res, res.dcs.back(), cylinders_map_a, cylinders_map_a_size);
 		}
 	}
 }
@@ -2279,21 +2324,22 @@ static void interleave_dive_computers(struct dive &res,
  */
 static void join_dive_computers(struct dive &d,
 				const struct dive &a, const struct dive &b,
-				const int cylinders_map_a[], const int cylinders_map_b[],
+				const int cylinders_map_a[], size_t cylinders_map_a_size,
+				const int cylinders_map_b[], size_t cylinders_map_b_size,
 				bool prefer_downloaded)
 {
 	d.dcs.clear();
 	if (!a.dcs[0].model.empty() && b.dcs[0].model.empty()) {
-		copy_dc_renumber(d, a, cylinders_map_a);
+		copy_dc_renumber(d, a, cylinders_map_a, cylinders_map_a_size);
 		return;
 	}
 	if (!b.dcs[0].model.empty() && a.dcs[0].model.empty()) {
-		copy_dc_renumber(d, b, cylinders_map_b);
+		copy_dc_renumber(d, b, cylinders_map_b, cylinders_map_b_size);
 		return;
 	}
 
-	copy_dc_renumber(d, a, cylinders_map_a);
-	copy_dc_renumber(d, b, cylinders_map_b);
+	copy_dc_renumber(d, a, cylinders_map_a, cylinders_map_a_size);
+	copy_dc_renumber(d, b, cylinders_map_b, cylinders_map_b_size);
 
 	remove_redundant_dc(d, prefer_downloaded);
 }
@@ -2348,18 +2394,20 @@ std::unique_ptr<dive> dive::create_merged_dive(const struct dive &a, const struc
 	res->tags = taglist_merge(a.tags, b.tags);
 	/* if we get dives without any gas / cylinder information in an import, make sure
 	 * that there is at leatst one entry in the cylinder map for that dive */
-	auto cylinders_map_a = std::make_unique<int[]>(std::max(size_t(1), a.cylinders.size()));
-	auto cylinders_map_b = std::make_unique<int[]>(std::max(size_t(1), b.cylinders.size()));
+	size_t map_a_size = std::max(size_t(1), a.cylinders.size());
+	size_t map_b_size = std::max(size_t(1), b.cylinders.size());
+	auto cylinders_map_a = std::make_unique<int[]>(map_a_size);
+	auto cylinders_map_b = std::make_unique<int[]>(map_b_size);
 	merge_cylinders(*res, a, b, cylinders_map_a.get(), cylinders_map_b.get());
 	merge_equipment(*res, a, b);
 	merge_temperatures(*res, a, b);
 	if (prefer_downloaded) {
 		/* If we prefer downloaded, do those first, and get rid of "might be same" computers */
-		join_dive_computers(*res, b, a, cylinders_map_b.get(), cylinders_map_a.get(), true);
+		join_dive_computers(*res, b, a, cylinders_map_b.get(), map_b_size, cylinders_map_a.get(), map_a_size, true);
 	} else if (offset && might_be_same_device(a.dcs[0], b.dcs[0])) {
-		interleave_dive_computers(*res, a, b, cylinders_map_a.get(), cylinders_map_b.get());
+		interleave_dive_computers(*res, a, b, cylinders_map_a.get(), map_a_size, cylinders_map_b.get(), map_b_size);
 	} else {
-		join_dive_computers(*res, a, b, cylinders_map_a.get(), cylinders_map_b.get(), false);
+		join_dive_computers(*res, a, b, cylinders_map_a.get(), map_a_size, cylinders_map_b.get(), map_b_size, false);
 	}
 
 	return res;

@@ -88,7 +88,7 @@
   <water salinity='1020 g/l' />
   <tanksensormapping sensorid='0' cylinderindex='1' />
   <event time='0:00 min' type='11' value='45' name='gaschange' cylinder='1' o2='45.0%' />
-  <event time='20:01 min' type='25' value='2949135' name='gaschange' cylinder='0' o2='50.0%' />
+  <event time='20:01 min' type='25' value='2949135' name='gaschange' cylinder='1' o2='45.0%' />
   <sample time='0:00 min' depth='0.0 m' />
   <sample time='0:10 min' depth='1.067 m' temp='26.667 C' pressure0='200.0 bar' tts='1:00 min' cns='4%' sensor1='0.777 bar' sensor2='0.777 bar' sensor3='0.756 bar' dc_supplied_ppo2='0.66 bar' po2='0.7 bar' />
   <sample time='0:50 min' depth='15.0 m' />

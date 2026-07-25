@@ -2,10 +2,12 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "bounded-reader.h"
 #include "divesite.h"
 #include "dive.h"
 #include "divelog.h"
 #include "errorhelper.h"
+#include "gettext.h"
 #include "subsurface-string.h"
 #include "file.h"
 #include "sample.h"
@@ -170,37 +172,61 @@ static void parse_dives(int log_version, const unsigned char *buf, unsigned int 
 		}
 		ptr++;
 
-		// Dive location, assemble Location and Place
+		// Dive location, assemble Location and Place.
+		// Both lengths are 32 bit fields straight out of the file, and each was
+		// used directly as a std::string length - so a crafted file copied up to
+		// 4GB from past the end of the buffer into a dive site name the user then
+		// sees. Read them through the cursor, which refuses anything that does not
+		// fit and latches the failure.
 		unsigned int len, place_len;
-		std::string location;
-		len = array_uint32_le(buf + ptr);
-		ptr += 4;
-		place_len = array_uint32_le(buf + ptr + len);
+		std::string location, place;
+		BoundedReader rd(buf, buf_size);
+		if (!rd.seek(ptr))
+			break;
 
-		if (len && place_len) {
-			location = std::string((char *)buf + ptr, len) + ", " +
-				   std::string((char *)buf + ptr + len + 4, place_len);
-		} else if (len) {
-			location = std::string((char *)buf + ptr, len);
-		} else if (place_len) {
-			location = std::string((char *)buf + ptr + len + 4, place_len);
+		len = rd.u32_le();
+		std::string loc_str = rd.str(len);
+		place_len = rd.u32_le();
+		place = rd.str(place_len);
+		if (!rd.ok()) {
+			report_info("DEBUG: truncated dive location - terminating parser");
+			break;
 		}
+
+		if (!loc_str.empty() && !place.empty())
+			location = loc_str + ", " + place;
+		else if (!loc_str.empty())
+			location = loc_str;
+		else
+			location = place;
 
 		/* Store the location only if we have one */
 		if (!location.empty())
 			sites.find_or_create(location)->add_dive(dive.get());
 
-		ptr += len + 4 + place_len;
+		ptr = rd.pos();
 
 		// Dive comment
 		len = array_uint32_le(buf + ptr);
 		ptr += 4;
+		if (!rd.seek(ptr) || !rd.has(len)) {
+			report_info("DEBUG: truncated dive comment - terminating parser");
+			break;
+		}
 
 		// Blank notes are better than the default text
 		std::string notes((char *)buf + ptr, len);
 		if (!starts_with(notes, "Comment ..."))
 			dive->notes = std::move(notes);
 		ptr += len;
+
+		// Fixed size part of the dive record: id, number, duration, depths,
+		// timestamps, pressures, temperatures, salinity, sample count and the
+		// sample interval. 38 bytes, none of which were bounds checked.
+		if (ptr + 38 > buf_size) {
+			report_info("DEBUG: truncated dive record - terminating parser");
+			break;
+		}
 
 		dive->id = array_uint32_le(buf + ptr);
 		ptr += 4;
@@ -258,13 +284,25 @@ static void parse_dives(int log_version, const unsigned char *buf, unsigned int 
 		[[maybe_unused]] float start_cns = 0;
 		[[maybe_unused]] unsigned char dive_mode = 0;
 		[[maybe_unused]] unsigned char algorithm = 0;
+		if (ptr + 4 > buf_size) {
+			report_info("DEBUG: truncated sample header - terminating parser");
+			break;
+		}
 		if (array_uint32_le(buf + ptr) != sample_count) {
-			// Xeo, with CNS and OTU
-			start_cns = *(float *) (buf + ptr);
+			// Xeo, with CNS and OTU: 3 floats, 2 bytes and another count
+			if (ptr + 18 > buf_size) {
+				report_info("DEBUG: truncated Xeo record - terminating parser");
+				break;
+			}
+			// memcpy rather than a cast - the buffer is not aligned
+			memcpy(&start_cns, buf + ptr, 4);
 			ptr += 4;
-			dive->cns = lrintf(*(float *) (buf + ptr));	// end cns
+			float f;
+			memcpy(&f, buf + ptr, 4);
+			dive->cns = lrintf(f);	// end cns
 			ptr += 4;
-			dive->otu = lrintf(*(float *) (buf + ptr));
+			memcpy(&f, buf + ptr, 4);
+			dive->otu = lrintf(f);
 			ptr += 4;
 			dive_mode = *(buf + ptr++);	// 0=Deco, 1=Gauge, 2=None, 35=Rec
 			algorithm = *(buf + ptr++);	// 0=ZH-L16C+GF
@@ -275,7 +313,10 @@ static void parse_dives(int log_version, const unsigned char *buf, unsigned int 
 			report_info("DEBUG: sample count 0 - terminating parser");
 			break;
 		}
-		if (ptr + sample_count * 4 + 4 > buf_size) {
+		// "ptr + sample_count * 4 + 4 > buf_size" was an unsigned multiply, so a
+		// sample_count of 0x40000000 wrapped to zero and sailed through the very
+		// check that was meant to stop it. Divide instead of multiplying.
+		if (sample_count > (buf_size - ptr - 4) / 4) {
 			report_info("DEBUG: BOF - terminating parser");
 			break;
 		}
@@ -287,8 +328,18 @@ static void parse_dives(int log_version, const unsigned char *buf, unsigned int 
 		const unsigned char *ds = buf + ptr;
 		const unsigned char *ts = buf + ptr + sample_count * 2 + 4;
 		const unsigned char *ps = buf + ptr + sample_count * 4 + 4;
+		// ps_count itself is four more bytes past the sample arrays
+		size_t ps_offset = ptr + sample_count * 4 + 4;
+		if (ps_offset + 4 > buf_size) {
+			report_info("DEBUG: truncated event count - terminating parser");
+			break;
+		}
 		unsigned int ps_count = array_uint32_le(ps);
 		ps += 4;
+		// How much of the buffer the event walker below is allowed to touch.
+		// Everything it reads is at "ps + ps_ptr", and ps_ptr advances by
+		// amounts that come out of the file itself.
+		size_t ps_avail = buf_size - (ps_offset + 4);
 
 		// Bump ptr
 		ptr += sample_count * 4 + 4;
@@ -303,6 +354,16 @@ static void parse_dives(int log_version, const unsigned char *buf, unsigned int 
 
 		// Loop through events
 		for (e = 0; e < ps_count; e++) {
+			// The event handlers below read a payload whose size depends on
+			// the event code, all of it at "ps + ps_ptr" and none of it
+			// previously checked against the end of the buffer. The largest
+			// is the sensor id event (0x0010), which reads through
+			// ps_ptr + 25 and skips 26, so require the event code plus 26
+			// bytes to be present before dispatching one.
+			if (ps_ptr > ps_avail || ps_avail - ps_ptr < 2 + 26) {
+				report_info("DEBUG: truncated event stream - terminating events");
+				break;
+			}
 			// Get event
 			event_code = array_uint16_le(ps + ps_ptr);
 			ps_ptr += 2;
@@ -417,27 +478,33 @@ static void parse_dives(int log_version, const unsigned char *buf, unsigned int 
 int try_to_open_liquivision(const char *, std::string &mem, struct divelog *log)
 {
 	const unsigned char *buf = (unsigned char *)mem.data();
-	unsigned int buf_size = (unsigned int)mem.size();
-	unsigned int ptr;
 	int log_version;
 
-	// Get name length
-	unsigned int len = array_uint32_le(buf);
-	// Ignore length field and the name
-	ptr = 4 + len;
+	// Every field here is attacker controlled. In particular "len" used to be
+	// added to the cursor unchecked, so any value larger than the file made
+	// "buf_size - ptr" underflow to nearly 4GB - after which none of the bounds
+	// checks inside parse_dives() meant anything either.
+	BoundedReader reader(buf, mem.size());
 
-	unsigned int dive_count = array_uint32_le(buf + ptr);
+	// Get name length, then ignore the length field and the name
+	unsigned int len = reader.u32_le();
+	if (!reader.skip(len))
+		return report_error("%s", translate("gettextFromC", "Not a Liquivision file: truncated header"));
+
+	unsigned int dive_count = reader.u32_le();
 	if (dive_count == 0xffffffff) {
 		// File version 3.0
 		log_version = 3;
-		ptr += 6;
-		dive_count = array_uint32_le(buf + ptr);
+		reader.skip(2);
+		dive_count = reader.u32_le();
 	} else {
 		log_version = 2;
 	}
-	ptr += 4;
+	(void)dive_count;
+	if (!reader.ok())
+		return report_error("%s", translate("gettextFromC", "Not a Liquivision file: truncated header"));
 
-	parse_dives(log_version, buf + ptr, buf_size - ptr, log->dives, log->sites);
+	parse_dives(log_version, buf + reader.pos(), mem.size() - reader.pos(), log->dives, log->sites);
 
 	return 1;
 }

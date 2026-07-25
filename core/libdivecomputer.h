@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <atomic>
 #include <string>
 
 /* libdivecomputer */
@@ -59,7 +60,10 @@ dc_status_t libdc_buffer_parser(struct dive *dive, device_data_t *data, const un
 void logfunc(dc_context_t *context, dc_loglevel_t loglevel, const char *file, unsigned int line, const char *function, const char *msg, void *userdata);
 dc_descriptor_t *get_descriptor(dc_family_t type, unsigned int model);
 
-extern int import_thread_cancelled;
+// Written from the GUI thread while the download thread polls it. As a plain
+// int that is a data race, and nothing stopped the compiler from hoisting the
+// load out of the download loop, which made cancelling unreliable.
+extern std::atomic<bool> import_thread_cancelled;
 extern std::string progress_bar_text;
 extern void (*progress_callback)(const std::string &text);
 extern double progress_bar_fraction;

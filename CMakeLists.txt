@@ -33,6 +33,7 @@ MACRO_ENSURE_OUT_OF_SOURCE_BUILD(
 
 #Option for memory debugging
 option(SUBSURFACE_ASAN_BUILD "enable memory debugging of Subsurface binary" OFF)
+option(SUBSURFACE_FUZZ_BUILD "build the libFuzzer parser targets (requires clang)" OFF)
 
 #Option for profiling
 option(SUBSURFACE_PROFILING_BUILD "enable profiling of Subsurface binary" OFF)
@@ -148,6 +149,18 @@ else()
 	# GCC/Clang
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror=format")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror=format")
+
+	# Build hardening. None of this was set before, so the shipped binaries had
+	# no fortification, no stack protector and no full RELRO. Skipped for a
+	# sanitizer build, where _FORTIFY_SOURCE conflicts with the instrumentation.
+	if(NOT SUBSURFACE_ASAN_BUILD)
+		set(SUBSURFACE_HARDENING "-D_FORTIFY_SOURCE=2 -fstack-protector-strong")
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SUBSURFACE_HARDENING}")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SUBSURFACE_HARDENING}")
+		if(NOT APPLE AND NOT ANDROID)
+			set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,relro,-z,now")
+		endif()
+	endif()
 endif()
 
 # by default optimize with -O2 even for debug builds (GCC/Clang only)
@@ -1349,6 +1362,10 @@ endif()
 if (BUILD_TESTS)
 	enable_testing()
 	add_subdirectory(tests)
+endif()
+
+if (SUBSURFACE_FUZZ_BUILD)
+	add_subdirectory(tests/fuzz)
 endif()
 
 # useful for debugging CMake issues

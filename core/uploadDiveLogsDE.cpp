@@ -167,7 +167,7 @@ bool uploadDiveLogsDE::prepareDives(bool selected)
 		 * transform it to divelogs.de format, then transforming the XML
 		 * into JSON, finally dumping the JSON into a character buffer.
 		 */
-		xmlDoc *doc = xmlReadMemory(mb.buffer, mb.len, "divelog", NULL, XML_PARSE_HUGE);
+		xmlDoc *doc = xmlReadMemory(mb.buffer, mb.len, "divelog", NULL, XML_PARSE_HUGE | XML_PARSE_NONET);
 		if (!doc) {
 			report_info("%s could not parse back into memory the XML file we've just created!", errPrefix);
 			report_error("%s", qPrintable(tr("internal error")));
@@ -189,7 +189,8 @@ bool uploadDiveLogsDE::prepareDives(bool selected)
 		xmlFreeDoc(doc);
 		xmlFreeDoc(transformed);
 
-		doc = xmlReadMemory(membuf, streamsize, "divelogsdata", NULL, XML_PARSE_HUGE);
+		// this is the server's response, so treat it as untrusted
+		doc = xmlReadMemory(membuf, streamsize, "divelogsdata", NULL, XML_PARSE_NONET);
 		free(membuf);
 		if (!doc) {
 			report_info("%s could not parse back into memory the XML file we've just created!", errPrefix);

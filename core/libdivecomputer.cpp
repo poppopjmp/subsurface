@@ -1193,7 +1193,7 @@ static void event_cb(dc_device_t *device, dc_event_type_t event, const void *dat
 	}
 }
 
-int import_thread_cancelled;
+std::atomic<bool> import_thread_cancelled;
 
 static int cancel_cb(void *)
 {

@@ -44,16 +44,29 @@
 #define O_BINARY 0
 #endif
 
+namespace {
+// Every early return in readfile() used to leak the descriptor, and it is called
+// once per imported file and once per picture whose metadata is read, so a bulk
+// import could run the process out of descriptors.
+struct unique_fd {
+	int fd;
+	explicit unique_fd(int fd) : fd(fd) {}
+	~unique_fd() { if (fd >= 0) close(fd); }
+	unique_fd(const unique_fd &) = delete;
+	unique_fd &operator=(const unique_fd &) = delete;
+};
+}
+
 std::pair<std::string, int> readfile(const char *filename)
 {
-	int ret, fd;
+	int ret;
 	struct stat st;
 
 	std::string res;
-	fd = subsurface_open(filename, O_RDONLY | O_BINARY, 0);
-	if (fd < 0)
-		return std::make_pair(res, fd);
-	ret = fstat(fd, &st);
+	unique_fd fd(subsurface_open(filename, O_RDONLY | O_BINARY, 0));
+	if (fd.fd < 0)
+		return std::make_pair(res, fd.fd);
+	ret = fstat(fd.fd, &st);
 	if (ret < 0)
 		return std::make_pair(res, ret);
 	if (!S_ISREG(st.st_mode))
@@ -64,7 +77,7 @@ std::pair<std::string, int> readfile(const char *filename)
 	// However, we use std::string, because that automatically 0-terminates
 	// the data and the code expects that.
 	res.resize(st.st_size);
-	ret = read(fd, res.data(), res.size());
+	ret = read(fd.fd, res.data(), res.size());
 	if (ret < 0)
 		return std::make_pair(res, ret);
 	// converting to int loses a bit but size will never be that big
@@ -76,13 +89,26 @@ std::pair<std::string, int> readfile(const char *filename)
 	}
 }
 
+// A dive log is text; anything above this is not something we want to expand into
+// memory just because an archive claims it decompresses to that size.
+static const size_t max_zip_entry_size = 256 * 1024 * 1024;
+
 static void zip_read(struct zip_file *file, const char *filename, struct divelog *log)
 {
-	int size = 1024, n, read = 0;
+	// This used to run on int, so past ~1.4GB the "read * 3 / 2" growth
+	// overflowed to a negative size and mem.data() + read pointed somewhere
+	// arbitrary. There was also no cap at all, so a zip bomb simply consumed
+	// memory until the process died.
+	size_t size = 1024, read = 0;
+	int n;
 	std::vector<char> mem(size + 1);
 
 	while ((n = zip_fread(file, mem.data() + read, size - read)) > 0) {
 		read += n;
+		if (read >= max_zip_entry_size) {
+			report_error(translate("gettextFromC", "File '%s' contains an unreasonably large entry"), filename);
+			return;
+		}
 		size = read * 3 / 2;
 		mem.resize(size + 1);
 	}
@@ -103,8 +129,13 @@ int try_to_open_zip(const char *filename, struct divelog *log)
 			if (!file)
 				break;
 			/* skip parsing the divelogs.de pictures */
-			if (strstr(zip_get_name(zip, index, 0), "pictures/"))
+			// zip_get_name() returns NULL for a corrupt entry, and the
+			// early continue used to skip the zip_fclose() below.
+			const char *name = zip_get_name(zip, index, 0);
+			if (name && strstr(name, "pictures/")) {
+				zip_fclose(file);
 				continue;
+			}
 			zip_read(file, filename, log);
 			zip_fclose(file);
 			success++;

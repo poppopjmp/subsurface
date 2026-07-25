@@ -4,6 +4,7 @@
 #pragma clang diagnostic ignored "-Wmissing-field-initializers"
 #endif
 
+#include <string.h>
 #include "dive.h"
 #include "parse.h"
 #include "sample.h"
@@ -470,16 +471,23 @@ static int dm5_dive(void *param, int, char **data, char **)
 	}
 
 	for (i = 0; interval && sampleBlob && i * interval < state->cur_dive->duration.seconds; i++) {
-		float *depth = (float *)&sampleBlob[i * block_size + 3];
+		// The blob is a byte array out of the database, so these floats sit at
+		// whatever offset the record layout puts them at. Casting a pointer into
+		// it to float * and dereferencing is undefined behaviour when that offset
+		// is not 4 byte aligned - which, at +3 and +11, it never is. UBSan reports
+		// it on x86 and it faults outright on stricter architectures.
+		float depth;
+		memcpy(&depth, &sampleBlob[i * block_size + 3], sizeof(depth));
 		int32_t pressure = (sampleBlob[i * block_size + 9] << 16) + (sampleBlob[i * block_size + 8] << 8) + sampleBlob[i * block_size + 7];
 
 		sample_start(state);
 		state->cur_sample->time.seconds = i * interval;
-		state->cur_sample->depth.mm = lrintf(depth[0] * 1000.0f);
+		state->cur_sample->depth.mm = lrintf(depth * 1000.0f);
 
 		if (tempformat == 1) {
-			float *temp = (float *)&(sampleBlob[i * block_size + 11]);
-			state->cur_sample->temperature.mkelvin = C_to_mkelvin(*temp);
+			float temp;
+			memcpy(&temp, &sampleBlob[i * block_size + 11], sizeof(temp));
+			state->cur_sample->temperature.mkelvin = C_to_mkelvin(temp);
 		} else {
 			if ((sampleBlob[i * block_size + 11]) != 0x7F) {
 				state->cur_sample->temperature.mkelvin = C_to_mkelvin(sampleBlob[i * block_size + 11]);

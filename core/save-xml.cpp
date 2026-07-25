@@ -801,7 +801,7 @@ static std::pair<int, std::string> transform_xslt(const char *filename, struct m
 	 * transform it to selected export format, finally dumping
 	 * the XML into a character buffer.
 	 */
-	doc = xmlReadMemory(buf.buffer, buf.len, "divelog", NULL, XML_PARSE_HUGE);
+	doc = xmlReadMemory(buf.buffer, buf.len, "divelog", NULL, XML_PARSE_HUGE | XML_PARSE_NONET);
 	if (!doc)
 		return std::make_pair(-1, translate("gettextFromC", "Failed to read XML memory"));
 

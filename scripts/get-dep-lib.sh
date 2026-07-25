@@ -79,7 +79,21 @@ curl_download_library() {
 	local filename=$3
 
 	if [ ! -f "$filename" ]; then
-		${CURL} "${base_url}${filename}"
+		${CURL} "${base_url}${filename}" || { echo "download of $filename failed" ; return 1 ; }
+	fi
+
+	# Verify against checksums.sha256 when the file is listed there. Nothing was
+	# verified at all before, so a tampered or truncated tarball was simply built.
+	local checksums
+	checksums="$(dirname "${BASH_SOURCE[0]}")/checksums.sha256"
+	if [ -f "$checksums" ] && grep -q " ${filename}\$" "$checksums" ; then
+		if ! grep " ${filename}\$" "$checksums" | sha256sum -c - ; then
+			echo "checksum mismatch for $filename - refusing to build it"
+			rm -f "$filename"
+			return 1
+		fi
+	else
+		echo "warning: no checksum on record for $filename"
 	fi
 
 	if [ ! -d "$name" ] || [ "$name" -ot "$filename" ] ; then
@@ -121,7 +135,8 @@ fi
 if [ "$(which curl)" == "" ] ; then
 	CURL="wget "
 else
-	CURL="curl -L -O "
+	# --fail so that an HTTP error is an error rather than a saved error page
+	CURL="curl --fail -L -O "
 fi
 COMMON_PACKAGES=(libzip libgit2 googlemaps)
 case ${PLATFORM} in
@@ -205,7 +220,10 @@ for package in "${PACKAGES[@]}" ; do
 			git_checkout_library libzip $CURRENT_LIBZIP https://github.com/nih-at/libzip.git
 			;;
 		libftdi1)
-			git_checkout_library libftdi1 $CURRENT_LIBFTDI git://developer.intra2net.com/libftdi
+			# git:// has no TLS and no server authentication. The checkout is pinned to a
+			# SHA, which limits what a network attacker can substitute, but the fetch
+			# itself should still not be in the clear. Same host, over TLS.
+			git_checkout_library libftdi1 $CURRENT_LIBFTDI https://developer.intra2net.com/git/libftdi
 			;;
 		sqlite)
 			curl_download_library sqlite https://sqlite.org/2017/ sqlite-autoconf-${CURRENT_SQLITE}.tar.gz

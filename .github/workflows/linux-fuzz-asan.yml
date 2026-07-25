@@ -1,0 +1,165 @@
+name: Linux Fuzzing and Sanitizers
+
+# The file importers are the part of Subsurface that processes bytes somebody
+# else produced, so they are the part worth fuzzing. This runs a short smoke
+# fuzz on every push and pull request - long enough to catch an obvious
+# regression, short enough not to hold anyone up - and a longer sweep nightly.
+
+on:
+  push:
+    paths-ignore:
+    - scripts/docker/**
+    branches:
+    - master
+  pull_request:
+    paths-ignore:
+    - scripts/docker/**
+    branches:
+    - master
+  schedule:
+    # 03:00 UTC daily
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+
+    steps:
+    - name: get container ready for build
+      run: |
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
+        autoconf automake cmake ninja-build git libtool make pkg-config \
+        clang libclang-rt-18-dev \
+        libxml2-dev libxslt1-dev libzip-dev libsqlite3-dev libgit2-dev \
+        libusb-1.0-0-dev libmtp-dev libraw-dev libbluetooth-dev \
+        libssl-dev libcurl4-openssl-dev libssh2-1-dev \
+        qt6-base-dev qt6-base-private-dev qt6-declarative-dev \
+        qt6-declarative-private-dev qt6-svg-dev qt6-tools-dev \
+        qt6-tools-dev-tools qt6-positioning-dev qt6-connectivity-dev \
+        qt6-5compat-dev libqt6opengl6-dev
+
+        git config --global --add safe.directory $GITHUB_WORKSPACE
+        git config --global --add safe.directory $GITHUB_WORKSPACE/libdivecomputer
+
+    - name: checkout sources
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 1
+        submodules: recursive
+
+    - name: build libdivecomputer
+      run: |
+        cd libdivecomputer
+        autoreconf --install
+        ./configure --prefix=/usr/local --disable-shared --enable-static
+        make -j$(nproc)
+        make install
+
+    - name: build the fuzz targets
+      run: |
+        cmake -S . -B build-fuzz -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+          -DBUILD_WITH_QT6=ON -DNO_DOCS=ON \
+          -DSUBSURFACE_FUZZ_BUILD=ON \
+          -DSUBSURFACE_TARGET_EXECUTABLE=DesktopExecutable
+        cmake --build build-fuzz --target \
+          fuzz-parse-xml fuzz-liquivision fuzz-datatrak fuzz-cochran fuzz-ostctools
+
+    - name: fuzz
+      run: |
+        # A scheduled run gets a much longer budget than a pull request check.
+        if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+          BUDGET=600
+        else
+          BUDGET=60
+        fi
+
+        cd build-fuzz/tests/fuzz
+        status=0
+        for target in parse-xml liquivision datatrak cochran ostctools; do
+          echo "--------------------------------------------------------------"
+          echo "fuzzing ${target} for ${BUDGET}s"
+          mkdir -p "corpus-${target}"
+          # Seed with whatever sample dive logs we ship; for the binary formats
+          # there are none, and libFuzzer is happy to start from nothing.
+          cp "${GITHUB_WORKSPACE}"/dives/*.xml "corpus-${target}/" 2>/dev/null || true
+          if ! ./"fuzz-${target}" "corpus-${target}" \
+                -max_total_time=${BUDGET} -max_len=16384 -rss_limit_mb=4096 \
+                -print_final_stats=1; then
+            echo "::error::fuzz-${target} reported a failure"
+            status=1
+          fi
+        done
+        exit $status
+
+    - name: upload crashers
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: fuzz-crashers
+        path: |
+          build-fuzz/tests/fuzz/crash-*
+          build-fuzz/tests/fuzz/leak-*
+          build-fuzz/tests/fuzz/timeout-*
+        if-no-files-found: ignore
+
+  asan-tests:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+
+    steps:
+    - name: get container ready for build
+      run: |
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
+        autoconf automake cmake ninja-build git libtool make pkg-config xvfb \
+        g++ libxml2-dev libxslt1-dev libzip-dev libsqlite3-dev libgit2-dev \
+        libusb-1.0-0-dev libmtp-dev libraw-dev libbluetooth-dev \
+        libssl-dev libcurl4-openssl-dev libssh2-1-dev \
+        qt6-base-dev qt6-base-private-dev qt6-declarative-dev \
+        qt6-declarative-private-dev qt6-svg-dev qt6-tools-dev \
+        qt6-tools-dev-tools qt6-positioning-dev qt6-connectivity-dev \
+        qt6-5compat-dev libqt6opengl6-dev qt6-shadertools-dev \
+        qml6-module-qtquick qml6-module-qtqml-workerscript \
+        qml6-module-qtquick-window qml6-module-qttest \
+        qml6-module-qtquick-controls qml6-module-qtquick-templates \
+        qml6-module-qtquick-layouts qml6-module-qtpositioning
+
+        git config --global --add safe.directory $GITHUB_WORKSPACE
+        git config --global --add safe.directory $GITHUB_WORKSPACE/libdivecomputer
+
+    - name: checkout sources
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 1
+        submodules: recursive
+
+    - name: build libdivecomputer
+      run: |
+        cd libdivecomputer
+        autoreconf --install
+        ./configure --prefix=/usr/local --disable-shared --enable-static
+        make -j$(nproc)
+        make install
+
+    # SUBSURFACE_ASAN_BUILD has existed in CMakeLists.txt for years but was never
+    # switched on anywhere, so the test suite has never run under a sanitizer.
+    - name: build and run the tests under ASan and UBSan
+      run: |
+        cmake -S . -B build-asan -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DBUILD_WITH_QT6=ON -DNO_DOCS=ON \
+          -DBUILD_TESTS=ON -DSUBSURFACE_ASAN_BUILD=ON \
+          -DSUBSURFACE_TARGET_EXECUTABLE=DesktopExecutable
+        cmake --build build-asan
+        cd build-asan/tests
+        ASAN_OPTIONS=detect_leaks=0 UBSAN_OPTIONS=print_stacktrace=1 \
+          xvfb-run --auto-servernum ctest --output-on-failure

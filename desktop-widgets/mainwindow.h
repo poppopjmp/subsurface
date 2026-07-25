@@ -84,7 +84,13 @@ public:
 	std::unique_ptr<DiveSiteListView> diveSites;
 	std::unique_ptr<DiveListView> diveList;
 	std::unique_ptr<ProfileWidget> profile;
+#ifdef MAP_SUPPORT
+	// mapwidget.cpp is only compiled when MAPSUPPORT is on, so without it there
+	// is no definition of MapWidget for the unique_ptr deleter or the vtable to
+	// refer to. That went unnoticed because an optimised build happened to elide
+	// the references; a sanitizer build fails to link.
 	std::unique_ptr<MapWidget> mapWidget;
+#endif
 
 private
 slots:

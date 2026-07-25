@@ -140,6 +140,10 @@ MainWindow::MainWindow() :
 	diveList.reset(new DiveListView);
 #ifdef MAP_SUPPORT
 	mapWidget.reset(MapWidget::instance()); // Yes, this is ominous see comment in mapwidget.cpp.
+	QWidget *mapWidgetPtr = mapWidget.get();
+#else
+	// No QtLocation, so no map. The layout slot simply stays empty.
+	QWidget *mapWidgetPtr = nullptr;
 #endif
 	plannerWidgets.reset(new PlannerWidgets);
 	statistics.reset(new StatsWidget);
@@ -149,19 +153,19 @@ MainWindow::MainWindow() :
 	diveSiteEdit.reset(new LocationInformationWidget);
 
 	registerApplicationState(ApplicationState::Default, { true, { mainTab.get(), FLAG_NONE },  { profile.get(), FLAG_NONE },
-								    { diveList.get(), FLAG_NONE }, { mapWidget.get(), FLAG_NONE } });
+								    { diveList.get(), FLAG_NONE }, { mapWidgetPtr, FLAG_NONE } });
 	registerApplicationState(ApplicationState::PlanDive, { false, { &plannerWidgets->plannerWidget, FLAG_NONE },         { profile.get(), FLAG_NONE },
 								      { &plannerWidgets->plannerSettingsWidget, FLAG_NONE }, { &plannerWidgets->plannerDetails, FLAG_NONE } });
 	registerApplicationState(ApplicationState::EditDiveSite, { false, { diveSiteEdit.get(), FLAG_NONE }, { profile.get(), FLAG_DISABLED },
-									  { diveList.get(), FLAG_DISABLED }, { mapWidget.get(), FLAG_NONE } });
+									  { diveList.get(), FLAG_DISABLED }, { mapWidgetPtr, FLAG_NONE } });
 	registerApplicationState(ApplicationState::FilterDive, { true, { mainTab.get(), FLAG_NONE },  { profile.get(), FLAG_NONE },
 								       { diveList.get(), FLAG_NONE }, { &filterWidget, FLAG_NONE } });
 	registerApplicationState(ApplicationState::Statistics, { true, { statistics.get(), FLAG_NONE }, { nullptr, FLAG_NONE },
 								       { diveList.get(), FLAG_DISABLED },   { &filterWidget, FLAG_NONE } });
 	registerApplicationState(ApplicationState::DiveSites, { false, { diveSites.get(), FLAG_NONE },  { profile.get(), FLAG_NONE },
-								       { diveList.get(), FLAG_NONE }, { mapWidget.get(), FLAG_NONE } });
+								       { diveList.get(), FLAG_NONE }, { mapWidgetPtr, FLAG_NONE } });
 	registerApplicationState(ApplicationState::MapMaximized, { true, { nullptr, FLAG_NONE }, { nullptr, FLAG_NONE },
-									 { nullptr, FLAG_NONE }, { mapWidget.get(), FLAG_NONE } });
+									 { nullptr, FLAG_NONE }, { mapWidgetPtr, FLAG_NONE } });
 	registerApplicationState(ApplicationState::ProfileMaximized, { true, { nullptr, FLAG_NONE }, { profile.get(), FLAG_NONE },
 									     { nullptr, FLAG_NONE }, { nullptr, FLAG_NONE } });
 	registerApplicationState(ApplicationState::ListMaximized, { true, { nullptr, FLAG_NONE },        { nullptr, FLAG_NONE },

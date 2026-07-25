@@ -38,7 +38,11 @@ Additionally, artifacts for Windows, macOS, Android, Linux AppImage, and iOS (si
 
 If you want a more stable version that is a little bit more tested you can get this from the [Curent Release](https://www.subsurface-divelog.org/current-release/) page on [our website](https://www.subsurface-divelog.org/).
 
+Note that there have been no git tags since `v5.0.10` in 2022. That is deliberate, not a sign that the project stopped: with Subsurface 6 the project moved to a CI/CD based rolling release, so the pages linked above are the release, and the git history is continuous. See [ReleaseNotes/ReleaseNotes.txt](/ReleaseNotes/ReleaseNotes.txt).
+
 Detailed build instructions can be found in the [INSTALL.md](/INSTALL.md) file.
+
+Security issues should be reported privately - see [SECURITY.md](/SECURITY.md).
 
 ## System Requirements
 

@@ -46,8 +46,12 @@ DiveToAdd DiveListBase::removeDive(struct dive *d, std::vector<std::unique_ptr<d
 	}
 
 	size_t idx = divelog.dives.get_idx(d);
-	if (idx == std::string::npos)
+	if (idx == std::string::npos) {
+		// Carrying on from here used to leave a null dive in the command,
+		// which then got handed to register_dive() on undo.
 		qWarning("Deletion of unknown dive!");
+		return res;
+	}
 
 	DiveFilter::instance()->diveRemoved(d);
 

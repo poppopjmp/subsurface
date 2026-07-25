@@ -25,7 +25,11 @@ struct dive_table : public sorted_owning_table<dive, &comp_dives> {
 	dive *get_by_uniq_id(int id) const;
 	void record_dive(std::unique_ptr<dive> d);	// call fixup_dive() before adding dive to table.
 	struct dive *register_dive(std::unique_ptr<dive> d);
-	std::unique_ptr<dive> unregister_dive(int idx);
+	// Takes the same size_t index type that get_idx() returns. It used to take
+	// an int, so a not-found result (std::string::npos) only behaved because
+	// narrowing turned it into -1 and the implementation happened to test for
+	// a negative index.
+	std::unique_ptr<dive> unregister_dive(size_t idx);
 	std::unique_ptr<dive> default_dive();		// generate a sensible looking defaultdive 1h from now.
 
 	// Some of these functions act on dives, but need data from adjacent dives,

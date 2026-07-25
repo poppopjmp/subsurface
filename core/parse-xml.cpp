@@ -1753,9 +1753,14 @@ int parse_xml_buffer(const char *url, const char *buffer, int, struct divelog *l
 
 	state.log = log;
 	state.fingerprints = &fingerprints; // simply use the global table for now
-	doc = xmlReadMemory(buffer, strlen(buffer), url, NULL, XML_PARSE_HUGE);
+	// This is the entry point for every dive log file the user opens, so the
+	// input is untrusted. XML_PARSE_HUGE turns off libxml2's nesting depth and
+	// entity amplification limits, and traverse()/visit() below recurse over the
+	// tree, so a deeply nested file would simply exhaust the stack. XML_PARSE_NONET
+	// makes sure nothing in the document can pull in an external resource.
+	doc = xmlReadMemory(buffer, strlen(buffer), url, NULL, XML_PARSE_NONET);
 	if (!doc)
-		doc = xmlReadMemory(buffer, strlen(buffer), url, "latin1", XML_PARSE_HUGE);
+		doc = xmlReadMemory(buffer, strlen(buffer), url, "latin1", XML_PARSE_NONET);
 
 	if (!doc)
 		return report_error(translate("gettextFromC", "Failed to parse '%s'"), url);

@@ -703,9 +703,9 @@ int comp_dives_ptr(const struct dive *a, const struct dive *b)
  * The unregistered dive has the selection- and hidden-flags cleared.
  * TODO: This makes me unhappy, as it touches global state, viz.
  * selection and fulltext. */
-std::unique_ptr<dive> dive_table::unregister_dive(int idx)
+std::unique_ptr<dive> dive_table::unregister_dive(size_t idx)
 {
-	if (idx < 0 || static_cast<size_t>(idx) >= size())
+	if (idx >= size())
 		return {}; /* this should never happen */
 
 	auto dive = pull_at(idx);

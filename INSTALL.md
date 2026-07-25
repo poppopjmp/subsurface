@@ -56,16 +56,34 @@ Subsurface or trying to understand what we have done relative to their
 respective upstreams.
 
 
-### Getting Qt5
+### Getting Qt
 
-We use Qt5 in order to only maintain one UI across platforms.
+We use Qt in order to only maintain one UI across platforms. Subsurface builds
+against both Qt5 and Qt6, but new work should target Qt6 - Qt5 has been out of
+open source support since May 2023 and is on its way out here too.
 
-Qt5.9.1 is the oldest version supported if ONLY building Subsurface
-Qt5.12 is the oldest version supported if also building Subsurface-mobile
+Supported versions, enforced at configure time:
+
+- **Qt 6.4 or newer** for a Qt6 build. That is what the current Ubuntu LTS and
+  Debian stable ship, so it is the floor CI keeps working. Pass
+  `-DBUILD_WITH_QT6=ON` to cmake, or `-build-with-qt6` to `scripts/build.sh`.
+  A few code paths need a newer Qt and are guarded with `QT_VERSION_CHECK`; if
+  you add one, guard it, because the LTS build legs will catch you if you do not.
+- **Qt 5.11 or newer** for a Qt5 build. Still the default for historical reasons,
+  and still what several release pipelines use.
+
+Subsurface-mobile is **Qt6 only** - it requires KDE Frameworks 6 (Kirigami),
+which is not available for Qt5.
+
+The desktop build also needs C++20.
 
 Most Linux distributions include a new enough version of Qt (and if you are on
 a distro that still ships with an older Qt, likely your C compiler is also not
 new enough to build Subsurface).
+
+One Qt6 caveat: QtLocation was dropped for the first Qt6 releases and only
+returned in Qt 6.5, so on a distro shipping Qt 6.4 the map is simply not built.
+The rest of the application is unaffected.
 
 
 ### Other third party library dependencies
@@ -341,8 +359,8 @@ brew install autoconf automake libtool pkg-config gettext confuse
 2. install Qt
 
 download the macOS installer from https://download.qt.io/official_releases/online_installers
-and use it to install the desired Qt version. At this point the latest Qt5 version is still
-preferred over Qt6.
+and use it to install the desired Qt version. Qt6 is what CI builds and ships for
+macOS; the Qt5 build is still there but is on its way out.
 
 If you plan to deploy your build to an Apple Silicon Mac, you may have better results with
 Bluetooth connections if you install Qt5.15.13. If Qt5.15.13 is not available via the
