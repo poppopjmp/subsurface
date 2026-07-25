@@ -13,6 +13,7 @@ private slots:
 	void testDepthDeviationIsInterpolated();
 	void testAscentRateViolations();
 	void testDecoTimeFromSamples();
+	void testSelectableDivesSkipsProfilelessDives();
 };
 
 #endif

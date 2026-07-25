@@ -445,6 +445,17 @@ if you have network connectivity and want to sync your data to cloud storage."),
 				}
 				Kirigami.Action {
 					icon {
+						name: ":/icons/ic_sort_24px.svg"
+						color: subsurfaceTheme.textColor
+					}
+					text: qsTr("Plan vs. dive")
+					onTriggered: {
+						globalDrawer.close()
+						showPageFromDrawer(diveComparisonWindow)
+					}
+				}
+				Kirigami.Action {
+					icon {
 						name: ":/icons/ic_cloud_upload.svg"
 						color: subsurfaceTheme.textColor
 					}
@@ -963,6 +974,11 @@ if you have network connectivity and want to sync your data to cloud storage."),
 
 	DiveSummary {
 		id: diveSummaryWindow
+		visible: false
+	}
+
+	DiveComparison {
+		id: diveComparisonWindow
 		visible: false
 	}
 

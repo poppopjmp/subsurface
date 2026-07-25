@@ -5,9 +5,11 @@
 #include "core/dive.h"
 #include "core/divelist.h"
 #include "core/divelog.h"
+#include "core/qthelper.h"
 #include "core/string-format.h"
 
 #include <QCoreApplication>
+#include <QVariantMap>
 
 DiveComparisonModel::DiveComparisonModel(QObject *parent) : QAbstractTableModel(parent)
 {
@@ -34,6 +36,21 @@ void DiveComparisonModel::setDives(const struct dive *plan, const struct dive *a
 void DiveComparisonModel::setDiveIds(int planId, int actualId)
 {
 	setDives(divelog.dives.get_by_uniq_id(planId), divelog.dives.get_by_uniq_id(actualId));
+}
+
+QVariantList DiveComparisonModel::selectableDives() const
+{
+	QVariantList res;
+	for (const struct dive *d: comparable_dives()) {
+		QVariantMap entry;
+		entry["id"] = d->id;
+		QString location = QString::fromStdString(d->get_location());
+		entry["label"] = location.isEmpty()
+					 ? tr("#%1 %2").arg(d->number).arg(get_short_dive_date_string(d->when))
+					 : tr("#%1 %2 - %3").arg(d->number).arg(get_short_dive_date_string(d->when), location);
+		res.append(entry);
+	}
+	return res;
 }
 
 void DiveComparisonModel::clear()

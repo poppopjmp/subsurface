@@ -65,4 +65,9 @@ constexpr int default_ascent_limit_mm_per_min = 10000;
 dive_comparison compare_dives(const struct dive *plan, const struct dive *actual,
 			      int ascent_limit_mm_per_min = default_ascent_limit_mm_per_min);
 
+// The dives in the log that can take part in a comparison, newest first. A dive
+// without a profile cannot be compared, so offering it as a choice would only
+// produce an error once picked.
+std::vector<const struct dive *> comparable_dives();
+
 #endif // DIVECOMPARISON_H

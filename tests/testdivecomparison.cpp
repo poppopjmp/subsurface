@@ -4,6 +4,8 @@
 #include "core/dive.h"
 #include "core/divecomparison.h"
 #include "core/divecomputer.h"
+#include "core/divelist.h"
+#include "core/divelog.h"
 #include "core/sample.h"
 
 #include <QTest>
@@ -166,6 +168,40 @@ void TestDiveComparison::testDecoTimeFromSamples()
 	viaStop->dcs[0].samples[1].stopdepth.mm = 6000;
 	auto c2 = compare_dives(plan.get(), viaStop.get());
 	QCOMPARE(c2.actual_deco_time.seconds, 1200);
+}
+
+void TestDiveComparison::testSelectableDivesSkipsProfilelessDives()
+{
+	divelog.clear();
+
+	// two comparable dives ...
+	auto a = square_dive(30000, 1200);
+	a->number = 1;
+	a->when = 1000;
+	// ... and one without a profile, which cannot be compared and so must not
+	// be offered as a choice
+	auto noProfile = std::make_unique<struct dive>();
+	noProfile->number = 2;
+	noProfile->when = 2000;
+	auto b = square_dive(20000, 600);
+	b->number = 3;
+	b->when = 3000;
+
+	divelog.dives.record_dive(std::move(a));
+	divelog.dives.record_dive(std::move(noProfile));
+	divelog.dives.record_dive(std::move(b));
+
+	std::vector<const struct dive *> dives = comparable_dives();
+	QCOMPARE((int)dives.size(), 2);
+	// newest first
+	QCOMPARE(dives[0]->number, 3);
+	QCOMPARE(dives[1]->number, 1);
+
+	// and the two it offers really do compare
+	auto c = compare_dives(dives[1], dives[0]);
+	QVERIFY(c.valid);
+
+	divelog.clear();
 }
 
 QTEST_GUILESS_MAIN(TestDiveComparison)

@@ -14,6 +14,7 @@
 
 #include <QAbstractTableModel>
 #include <QStringList>
+#include <QVariantList>
 
 struct dive;
 
@@ -49,6 +50,10 @@ public:
 	// QML has no dive pointers, so let it name the dives by id.
 	Q_INVOKABLE void setDiveIds(int planId, int actualId);
 	Q_INVOKABLE void clear();
+	// The dives that can be compared, newest first, as { id, label } entries.
+	// The mobile list model is trip structured, so it cannot drive a plain combo
+	// box; building the list here keeps both front ends off that detail.
+	Q_INVOKABLE QVariantList selectableDives() const;
 
 	bool isValid() const;
 	// Empty when the comparison is valid.

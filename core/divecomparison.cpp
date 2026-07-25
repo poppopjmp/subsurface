@@ -3,6 +3,8 @@
 #include "divecomparison.h"
 
 #include "dive.h"
+#include "divelist.h"
+#include "divelog.h"
 #include "divecomputer.h"
 #include "sample.h"
 #include "statistics.h"
@@ -144,5 +146,19 @@ dive_comparison compare_dives(const struct dive *plan, const struct dive *actual
 	res.ascent_violations = find_ascent_violations(actual_dc, ascent_limit_mm_per_min);
 
 	res.valid = true;
+	return res;
+}
+
+std::vector<const struct dive *> comparable_dives()
+{
+	std::vector<const struct dive *> res;
+	// Newest first: both the dive just made and the plan it came from are far
+	// more likely to be recent than not.
+	for (auto it = divelog.dives.rbegin(); it != divelog.dives.rend(); ++it) {
+		const struct dive *d = it->get();
+		if (!d || d->dcs.empty() || d->dcs[0].samples.empty())
+			continue;
+		res.push_back(d);
+	}
 	return res;
 }

@@ -20,9 +20,60 @@ Kirigami.ScrollablePage {
 	background: Rectangle { color: subsurfaceTheme.backgroundColor }
 	title: qsTr("Plan vs. dive")
 
+	// Refresh the pickers whenever the page is shown: dives may have been
+	// downloaded or planned since the last time.
+	onVisibleChanged: if (visible) reload()
+
+	function reload() {
+		var dives = comparisonModel.selectableDives()
+		planPicker.model = dives
+		divePicker.model = dives
+		// Default to the two most recent dives, newest as the dive that was made
+		// and the one before it as the plan, which is the common case.
+		if (dives.length >= 2) {
+			divePicker.currentIndex = 0
+			planPicker.currentIndex = 1
+		}
+		compare()
+	}
+
+	function compare() {
+		if (planPicker.currentIndex < 0 || divePicker.currentIndex < 0)
+			return
+		comparisonModel.setDiveIds(planPicker.currentValue, divePicker.currentValue)
+	}
+
 	ColumnLayout {
 		width: comparisonPage.width - Kirigami.Units.gridUnit
 		spacing: Kirigami.Units.smallSpacing
+
+		Controls.Label {
+			Layout.fillWidth: true
+			text: qsTr("Plan")
+			color: subsurfaceTheme.textColor
+		}
+		Controls.ComboBox {
+			id: planPicker
+			Layout.fillWidth: true
+			textRole: "label"
+			valueRole: "id"
+			onActivated: comparisonPage.compare()
+		}
+
+		Controls.Label {
+			Layout.fillWidth: true
+			text: qsTr("Dive")
+			color: subsurfaceTheme.textColor
+		}
+		Controls.ComboBox {
+			id: divePicker
+			Layout.fillWidth: true
+			textRole: "label"
+			valueRole: "id"
+			onActivated: comparisonPage.compare()
+		}
+
+		Kirigami.Separator { Layout.fillWidth: true }
 
 		// Shown instead of the table when there is nothing to compare, so the
 		// page never looks simply empty.
