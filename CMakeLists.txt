@@ -154,10 +154,15 @@ else()
 	# no fortification, no stack protector and no full RELRO. Skipped for a
 	# sanitizer build, where _FORTIFY_SOURCE conflicts with the instrumentation.
 	if(NOT SUBSURFACE_ASAN_BUILD)
-		set(SUBSURFACE_HARDENING "-D_FORTIFY_SOURCE=2 -fstack-protector-strong")
+		# -U first: the Android NDK already defines _FORTIFY_SOURCE, and
+		# redefining it is a warning on every single file it compiles.
+		set(SUBSURFACE_HARDENING "-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -fstack-protector-strong")
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SUBSURFACE_HARDENING}")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SUBSURFACE_HARDENING}")
-		if(NOT APPLE AND NOT ANDROID)
+		# RELRO is an ELF feature. Restrict it to Linux rather than "not Apple
+		# and not Android": the Windows build is a mingw cross compile producing
+		# PE binaries, whose linker does not understand -z relro.
+		if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 			set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,relro,-z,now")
 		endif()
 	endif()
