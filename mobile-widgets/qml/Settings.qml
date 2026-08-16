@@ -730,6 +730,107 @@ TemplatePage {
 						rootItem.settingsChanged()
 					}
 				}
+				TemplateLabel {
+					enabled: PrefTechnicalDetails.calcceiling
+					text: qsTr("Show all tissue ceilings")
+					Layout.columnSpan: 2
+				}
+				SsrfSwitch {
+					enabled: PrefTechnicalDetails.calcceiling
+					checked: PrefTechnicalDetails.calcalltissues
+					onClicked: {
+						PrefTechnicalDetails.calcalltissues = checked
+						rootItem.settingsChanged()
+					}
+				}
+				TemplateLabel {
+					enabled: PrefTechnicalDetails.calcceiling
+					text: qsTr("Round calculated ceiling up to 3 m")
+					Layout.columnSpan: 2
+				}
+				SsrfSwitch {
+					enabled: PrefTechnicalDetails.calcceiling
+					checked: PrefTechnicalDetails.calcceiling3m
+					onClicked: {
+						PrefTechnicalDetails.calcceiling3m = checked
+						rootItem.settingsChanged()
+					}
+				}
+				TemplateLine {
+					visible: sectionAdvanced.isExpanded
+					Layout.columnSpan: 3
+				}
+				TemplateLabel {
+					text: qsTr("Profile graphs")
+					font.pointSize: subsurfaceTheme.headingPointSize
+					font.weight: Font.Light
+					Layout.topMargin: Kirigami.Units.largeSpacing
+					Layout.bottomMargin: Kirigami.Units.largeSpacing / 2
+					Layout.columnSpan: 3
+				}
+				TemplateLabel {
+					text: qsTr("Show gas bar")
+					Layout.columnSpan: 2
+				}
+				SsrfSwitch {
+					checked: PrefTechnicalDetails.tankbar
+					onClicked: {
+						PrefTechnicalDetails.tankbar = checked
+						rootItem.settingsChanged()
+					}
+				}
+				// On mobile the profile is drawn in its simplified form, where
+				// the pO2 graph is the one partial pressure shown and only for
+				// a rebreather dive. The pN2 and pHe graphs the desktop offers
+				// are not drawn there, so there is nothing to switch here.
+				TemplateLabel {
+					text: qsTr("Show pO₂ graph on rebreather dives")
+					Layout.columnSpan: 2
+				}
+				SsrfSwitch {
+					checked: PrefPartialPressureGas.po2
+					onClicked: {
+						PrefPartialPressureGas.po2 = checked
+						rootItem.settingsChanged()
+					}
+				}
+				TemplateLabel {
+					enabled: PrefPartialPressureGas.po2
+					text: qsTr("Show CCR setpoint")
+					Layout.columnSpan: 2
+				}
+				SsrfSwitch {
+					enabled: PrefPartialPressureGas.po2
+					checked: PrefTechnicalDetails.show_ccr_setpoint
+					onClicked: {
+						PrefTechnicalDetails.show_ccr_setpoint = checked
+						rootItem.settingsChanged()
+					}
+				}
+				TemplateLabel {
+					enabled: PrefPartialPressureGas.po2
+					text: qsTr("Show CCR oxygen sensors")
+					Layout.columnSpan: 2
+				}
+				SsrfSwitch {
+					enabled: PrefPartialPressureGas.po2
+					checked: PrefTechnicalDetails.show_ccr_sensors
+					onClicked: {
+						PrefTechnicalDetails.show_ccr_sensors = checked
+						rootItem.settingsChanged()
+					}
+				}
+				TemplateLabel {
+					text: qsTr("Show pSCR open circuit pO₂")
+					Layout.columnSpan: 2
+				}
+				SsrfSwitch {
+					checked: PrefTechnicalDetails.show_scr_ocpo2
+					onClicked: {
+						PrefTechnicalDetails.show_scr_ocpo2 = checked
+						rootItem.settingsChanged()
+					}
+				}
 				TemplateLine {
 					visible: sectionAdvanced.isExpanded
 					Layout.columnSpan: 3
