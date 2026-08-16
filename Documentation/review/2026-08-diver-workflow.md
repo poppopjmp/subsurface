@@ -203,11 +203,24 @@ all. It needs a rebreather diver's judgement, not an inference from the OC code.
 The comparison flags ascents above 10 m/min against a plan. A logged dive on its
 own gets no such readout, though the samples make it trivial.
 
-### 5.4 CNS, OTU and surface interval statistics
+### 5.4 Statistics beyond CNS, OTU and surface interval
 
-`stats/` has no CNS or OTU dimension and no surface-interval dimension, so the
-statistics view cannot answer "how did my oxygen exposure accumulate across this
-trip", which is a normal post-dive question for anyone diving nitrox repetitively.
+`stats/` gained three variables - CNS, OTU and surface interval - so the
+statistics view can answer "how did my oxygen exposure accumulate across this
+trip" and "how long was I up between dives", which are ordinary questions for
+anyone diving nitrox repetitively. OTU can be summed and CNS cannot, because OTU
+accumulates across a day of diving while CNS decays between dives. A dive that
+reports zero exposure is left out rather than counted as a clean dive: a dive
+with no profile also reports zero, and counting those would pull an exposure
+histogram towards a floor nobody actually dived.
+
+`stats/` had no test at all before this; `tests/teststatsvariables.cpp` is the
+first, and `TEST_EXTRA_LIBRARIES` in `tests/CMakeLists.txt` lets it link
+`subsurface_stats` without adding that library to every other test binary.
+
+Still missing: gradient factor and ceiling-derived variables, and anything that
+needs the profile rather than the dive summary - the variables all read fields
+that fixup already computed.
 
 ### 5.5 Mobile profile items the simplified renderer omits
 

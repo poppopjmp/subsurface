@@ -1192,6 +1192,164 @@ struct SACVariable : public StatsVariableTemplate<StatsVariable::Type::Numeric> 
 	}
 };
 
+// ============ CNS and OTU oxygen exposure ============
+//
+// Both are computed for every dive during fixup, so a dive that reports zero
+// really did generate no exposure worth counting. Treat zero as "nothing to
+// show" all the same, the way SAC does: a dive with no profile also reports
+// zero, and counting those as clean dives would pull an exposure histogram
+// towards a floor that nobody actually dived.
+
+struct CNSBinner : public IntRangeBinner<CNSBinner, IntBin> {
+	using IntRangeBinner::IntRangeBinner;
+	QString name() const override {
+		QLocale loc;
+		return StatsTranslations::tr("in %1 % steps").arg(loc.toString(bin_size));
+	}
+	QString unitSymbol() const override {
+		return StatsTranslations::tr("%");
+	}
+	int to_bin_value(const dive *d) const {
+		if (d->maxcns <= 0)
+			return invalid_value<int>();
+		return d->maxcns / bin_size;
+	}
+};
+
+static CNSBinner cns_binner5(5);
+static CNSBinner cns_binner10(10);
+static CNSBinner cns_binner25(25);
+
+struct CNSVariable : public StatsVariableTemplate<StatsVariable::Type::Numeric> {
+	QString name() const override {
+		return StatsTranslations::tr("CNS");
+	}
+	QString unitSymbol() const override {
+		return StatsTranslations::tr("%");
+	}
+	int decimals() const override {
+		return 0;
+	}
+	std::vector<const StatsBinner *> binners() const override {
+		return { &cns_binner5, &cns_binner10, &cns_binner25 };
+	}
+	double toFloat(const dive *d) const override {
+		if (d->maxcns <= 0)
+			return invalid_value<double>();
+		return static_cast<double>(d->maxcns);
+	}
+	std::vector<StatsOperation> supportedOperations() const override {
+		return { StatsOperation::Median, StatsOperation::Mean, StatsOperation::Min, StatsOperation::Max };
+	}
+};
+
+struct OTUBinner : public IntRangeBinner<OTUBinner, IntBin> {
+	using IntRangeBinner::IntRangeBinner;
+	QString name() const override {
+		QLocale loc;
+		return StatsTranslations::tr("in %1 OTU steps").arg(loc.toString(bin_size));
+	}
+	QString unitSymbol() const override {
+		return StatsTranslations::tr("OTU");
+	}
+	int to_bin_value(const dive *d) const {
+		if (d->otu <= 0)
+			return invalid_value<int>();
+		return d->otu / bin_size;
+	}
+};
+
+static OTUBinner otu_binner10(10);
+static OTUBinner otu_binner25(25);
+static OTUBinner otu_binner50(50);
+
+struct OTUVariable : public StatsVariableTemplate<StatsVariable::Type::Numeric> {
+	QString name() const override {
+		return StatsTranslations::tr("OTU");
+	}
+	QString unitSymbol() const override {
+		return StatsTranslations::tr("OTU");
+	}
+	int decimals() const override {
+		return 0;
+	}
+	std::vector<const StatsBinner *> binners() const override {
+		return { &otu_binner10, &otu_binner25, &otu_binner50 };
+	}
+	double toFloat(const dive *d) const override {
+		if (d->otu <= 0)
+			return invalid_value<double>();
+		return static_cast<double>(d->otu);
+	}
+	std::vector<StatsOperation> supportedOperations() const override {
+		// Summing matters here in a way it does not for CNS: OTU accumulates
+		// across a day of diving, CNS decays between dives.
+		return { StatsOperation::Median, StatsOperation::Mean, StatsOperation::Sum,
+			 StatsOperation::Min, StatsOperation::Max };
+	}
+};
+
+// ============ Surface interval, binned in 30 min, 1 h, 3 h or 12 h bins ============
+//
+// The interval before the dive, measured from the end of the previous one.
+// The first dive in the log has no previous dive and is left out rather than
+// counted as an infinite interval.
+
+static int surface_interval_seconds(const dive *d)
+{
+	timestamp_t interval = divelog.dives.get_surface_interval(d->when);
+	return interval < 0 ? invalid_value<int>() : static_cast<int>(interval);
+}
+
+struct SurfaceIntervalBinner : public IntRangeBinner<SurfaceIntervalBinner, IntBin> {
+	using IntRangeBinner::IntRangeBinner;
+	QString name() const override {
+		QLocale loc;
+		if (bin_size % 60 == 0)
+			return StatsTranslations::tr("in %1 h steps").arg(loc.toString(bin_size / 60));
+		return StatsTranslations::tr("in %1 min steps").arg(loc.toString(bin_size));
+	}
+	QString unitSymbol() const override {
+		return StatsTranslations::tr("min");
+	}
+	int to_bin_value(const dive *d) const {
+		int seconds = surface_interval_seconds(d);
+		if (seconds == invalid_value<int>())
+			return invalid_value<int>();
+		return seconds / 60 / bin_size;
+	}
+};
+
+static SurfaceIntervalBinner surface_interval_binner30(30);
+static SurfaceIntervalBinner surface_interval_binner60(60);
+static SurfaceIntervalBinner surface_interval_binner180(180);
+static SurfaceIntervalBinner surface_interval_binner720(720);
+
+struct SurfaceIntervalVariable : public StatsVariableTemplate<StatsVariable::Type::Numeric> {
+	QString name() const override {
+		return StatsTranslations::tr("Surface interval");
+	}
+	QString unitSymbol() const override {
+		return StatsTranslations::tr("h");
+	}
+	int decimals() const override {
+		return 1;
+	}
+	std::vector<const StatsBinner *> binners() const override {
+		return { &surface_interval_binner30, &surface_interval_binner60,
+			 &surface_interval_binner180, &surface_interval_binner720 };
+	}
+	double toFloat(const dive *d) const override {
+		int seconds = surface_interval_seconds(d);
+		if (seconds == invalid_value<int>())
+			return invalid_value<double>();
+		return seconds / 3600.0;
+	}
+	std::vector<StatsOperation> supportedOperations() const override {
+		return { StatsOperation::Median, StatsOperation::Mean, StatsOperation::Min, StatsOperation::Max };
+	}
+};
+
 // ============ Water and air temperature, binned in 2, 5, 10, 20 °C/°F bins ============
 
 struct TemperatureBinner : public IntRangeBinner<TemperatureBinner, IntBin> {
@@ -2004,6 +2162,9 @@ static MaxDepthVariable max_depth_variable;
 static MeanDepthVariable mean_depth_variable;
 static DurationVariable duration_variable;
 static SACVariable sac_variable;
+static CNSVariable cns_variable;
+static OTUVariable otu_variable;
+static SurfaceIntervalVariable surface_interval_variable;
 static WaterTemperatureVariable water_temperature_variable;
 static AirTemperatureVariable air_temperature_variable;
 static WeightVariable weight_variable;
@@ -2030,6 +2191,7 @@ static DiveComputerVariable dive_computer_variable;
 
 const std::vector<const StatsVariable *> stats_variables = {
 	&date_variable, &max_depth_variable, &mean_depth_variable, &duration_variable, &sac_variable,
+	&cns_variable, &otu_variable, &surface_interval_variable,
 	&water_temperature_variable, &air_temperature_variable, &weight_variable, &dive_nr_variable,
 	&gas_content_o2_variable, &gas_content_o2_he_max_variable, &gas_content_he_variable,
 	&dive_mode_variable, &people_variable, &buddy_variable, &dive_guide_variable, &tag_variable,

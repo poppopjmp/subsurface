@@ -63,9 +63,13 @@ function(TEST NAME FILE)
 	endif()
 	get_filename_component(HDR "${FILE}" NAME_WE)
 	add_executable(${NAME} ${FILE} ${HDR}.h)
+	# TEST_EXTRA_LIBRARIES lets a single test pull in a library the others do
+	# not need, without linking it into every test binary. Set it immediately
+	# before the TEST() call and unset it after.
 	target_link_libraries(
 		${NAME}
 		subsurface_backend_shared
+		${TEST_EXTRA_LIBRARIES}
 		${TEST_SPECIFIC_LIBRARIES}
 		subsurface_corelib
 		RESOURCE_LIBRARY
@@ -114,6 +118,9 @@ target_link_libraries(
 # SSRF test cases (TBD, convert to standard qTest setup)
 TEST(TestUnitConversion testunitconversion.cpp)
 TEST(TestDiveComparison testdivecomparison.cpp)
+set(TEST_EXTRA_LIBRARIES subsurface_stats)
+TEST(TestStatsVariables teststatsvariables.cpp)
+unset(TEST_EXTRA_LIBRARIES)
 TEST(TestProfile testprofile.cpp)
 TEST(TestGpsCoords testgpscoords.cpp)
 TEST(TestParse testparse.cpp)
