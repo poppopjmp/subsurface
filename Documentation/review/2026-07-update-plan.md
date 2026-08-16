@@ -27,6 +27,10 @@ reading:
 
 The remaining phases below are unchanged.
 
+Diver-facing work - the plan-versus-dive comparison, and the planner defects that
+turned up while building it - is recorded separately in
+`2026-08-diver-workflow.md`, together with what is left of it.
+
 ---
 
 ## 1. Guiding decisions
