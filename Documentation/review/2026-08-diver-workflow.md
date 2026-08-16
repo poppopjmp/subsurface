@@ -36,10 +36,11 @@ presents them, and both the desktop (`desktop-widgets/divecomparisondialog.cpp`,
 reachable from the dive list when exactly two dives are selected) and mobile
 (`mobile-widgets/qml/DiveComparison.qml`, in the drawer) use the same model.
 
-It reports max depth, mean depth, duration, decompression time and gas used, each
-as plan / dive / difference; the largest depth deviation from the planned profile
-at the same elapsed time, interpolated between samples; and any ascent that
-exceeded 10 m/min.
+It reports max depth, mean depth, duration, decompression time, gas used and time
+spent above the decompression ceiling, each as plan / dive / difference; the
+largest depth deviation from the planned profile at the same elapsed time,
+interpolated between samples; the deepest single ceiling breach; and any ascent
+that exceeded 10 m/min.
 
 `tests/testdivecomparison.cpp` covers it, including one case built through the
 planner rather than through a hand-written fixture, so the planner side is
