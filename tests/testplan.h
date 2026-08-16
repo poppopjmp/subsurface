@@ -20,6 +20,7 @@ private slots:
 	void testVpmbMetricRepeat();
 	void testMultipleGases();
 	void testCcrBailoutGasSelection();
+	void testCcrOxygenWarnings();
 };
 
 #endif // TESTPLAN_H

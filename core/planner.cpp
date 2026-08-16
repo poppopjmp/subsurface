@@ -362,13 +362,21 @@ static int setpoint_change(struct dive *dive, int cylinderid)
 	cylinder_t *cylinder = dive->get_cylinder(cylinderid);
 	if (cylinder->type.description.empty())
 		return 0;
-	if (starts_with(cylinder->type.description, "SP ")) {
-		float sp;
-		sscanf(cylinder->type.description.c_str() + 3, "%f", &sp);
-		return (int) (sp * 1000.0);
-	} else {
+	if (!starts_with(cylinder->type.description, "SP "))
 		return 0;
-	}
+
+	/* Whatever the user typed after "SP " is the setpoint in bar. Parse it
+	 * permissively, so that a decimal comma works as well as a decimal point,
+	 * and treat anything we cannot make sense of as an ordinary cylinder
+	 * rather than as a setpoint: the previous code ignored the result of
+	 * sscanf() and scaled an uninitialised float, so a description the parser
+	 * choked on planned the whole dive at an arbitrary setpoint. */
+	const char *start = cylinder->type.description.c_str() + 3;
+	const char *end = start;
+	double sp = permissive_strtod(start, &end);
+	if (end == start || sp <= 0.0 || sp > 3.0)
+		return 0;
+	return (int)lrint(sp * 1000.0);
 }
 
 static std::vector<gaschanges> analyze_gaslist(const struct diveplan &diveplan, struct dive *dive, int dcNr,

@@ -586,37 +586,48 @@ void diveplan::add_plan_to_notes(struct dive &dive, bool show_disclaimer, planne
 		double amb;
 
 		divemode_loop loop(dive.dcs[0]);
-		if (dive.dcs[0].divemode != CCR) {
-			for (auto &dp: this->dp) {
-				if (dp.time != 0) {
-					std::string temp;
-					struct gasmix gasmix = dive.get_cylinder(dp.cylinderid)->gasmix;
+		/* Every dive gets these warnings, closed circuit included. A CCR plan
+		 * used to get none at all, which silently dropped the check on its
+		 * bailout legs - the very part of a rebreather plan where the diver is
+		 * breathing an open circuit gas at depth and where a hypoxic or
+		 * hyperoxic mix is most likely to go unnoticed. The loop below already
+		 * asks for the dive mode at each point, so it handles a plan that
+		 * switches between modes. */
+		for (auto &dp: this->dp) {
+			if (dp.time != 0) {
+				std::string temp;
+				struct gasmix gasmix = dive.get_cylinder(dp.cylinderid)->gasmix;
 
-					divemode_t current_divemode = loop.at(dp.time).first;
-					amb = dive.depth_to_atm(dp.depth);
-					gas_pressures pressures = fill_pressures(amb, gasmix, (current_divemode == OC) ? 0.0 : amb * gasmix.o2.permille / 1000.0, current_divemode);
+				divemode_t current_divemode = loop.at(dp.time).first;
+				amb = dive.depth_to_atm(dp.depth);
+				/* On closed circuit the oxygen partial pressure is the
+				 * setpoint, not what the diluent would give on open
+				 * circuit. On pSCR it is neither: passing zero here lets
+				 * fill_pressures() apply the steady state model, which is
+				 * what the rest of Subsurface uses for pSCR. */
+				double po2 = current_divemode == CCR ? dp.setpoint / 1000.0 : 0.0;
+				gas_pressures pressures = fill_pressures(amb, gasmix, po2, current_divemode);
 
-					if (pressures.o2 > (dp.entered ? prefs.bottompo2 : prefs.decopo2) / 1000.0) {
-						const char *depth_unit;
-						int decimals;
-						double depth_value = get_depth_units(dp.depth, &decimals, &depth_unit);
-						if (!o2warning_exist)
-							buf += "<div>\n";
-						o2warning_exist = true;
-						temp = casprintf_loc(translate("gettextFromC", "high pO₂ value %.3f bar at %d:%02u with gas %s at depth %.*f %s!"),
-							pressures.o2, FRACTION_TUPLE(dp.time, 60), gasmix.name().c_str(), decimals, depth_value, depth_unit);
-						buf += format_string_std("<span style='color: red;'>%s </span> %s<br/>\n", translate("gettextFromC", "Warning:"), temp.c_str());
-					} else if (pressures.o2 < 0.16) {
-						const char *depth_unit;
-						int decimals;
-						double depth_value = get_depth_units(dp.depth, &decimals, &depth_unit);
-						if (!o2warning_exist)
-							buf += "<div>";
-						o2warning_exist = true;
-						temp = casprintf_loc(translate("gettextFromC", "low pO₂ value %.3f bar at %d:%02u with gas %s at depth %.*f %s!"),
-							pressures.o2, FRACTION_TUPLE(dp.time, 60), gasmix.name().c_str(), decimals, depth_value, depth_unit);
-						buf += format_string_std("<span style='color: red;'>%s </span> %s<br/>\n", translate("gettextFromC", "Warning:"), temp.c_str());
-					}
+				if (pressures.o2 > (dp.entered ? prefs.bottompo2 : prefs.decopo2) / 1000.0) {
+					const char *depth_unit;
+					int decimals;
+					double depth_value = get_depth_units(dp.depth, &decimals, &depth_unit);
+					if (!o2warning_exist)
+						buf += "<div>\n";
+					o2warning_exist = true;
+					temp = casprintf_loc(translate("gettextFromC", "high pO₂ value %.3f bar at %d:%02u with gas %s at depth %.*f %s!"),
+						pressures.o2, FRACTION_TUPLE(dp.time, 60), gasmix.name().c_str(), decimals, depth_value, depth_unit);
+					buf += format_string_std("<span style='color: red;'>%s </span> %s<br/>\n", translate("gettextFromC", "Warning:"), temp.c_str());
+				} else if (pressures.o2 < 0.16) {
+					const char *depth_unit;
+					int decimals;
+					double depth_value = get_depth_units(dp.depth, &decimals, &depth_unit);
+					if (!o2warning_exist)
+						buf += "<div>";
+					o2warning_exist = true;
+					temp = casprintf_loc(translate("gettextFromC", "low pO₂ value %.3f bar at %d:%02u with gas %s at depth %.*f %s!"),
+						pressures.o2, FRACTION_TUPLE(dp.time, 60), gasmix.name().c_str(), decimals, depth_value, depth_unit);
+					buf += format_string_std("<span style='color: red;'>%s </span> %s<br/>\n", translate("gettextFromC", "Warning:"), temp.c_str());
 				}
 			}
 		}

@@ -410,7 +410,7 @@ diveplan setupPlanSeveralGases()
 	return dp;
 }
 
-diveplan setupPlanCcr()
+diveplan setupPlanCcr(int setpoint)
 {
 	diveplan dp;
 	dp.salinity = 10300;
@@ -443,7 +443,7 @@ diveplan setupPlanCcr()
 
 	plan_add_segment(dp, 0, cyl1->depth, 1, 0, false, OC);
 	plan_add_segment(dp, 0, cyl2->depth, 2, 0, false, OC);
-	plan_add_segment(dp, 20 * 60, m_or_ft(60, 197), 0, 1300, true, CCR);
+	plan_add_segment(dp, 20 * 60, m_or_ft(60, 197), 0, setpoint, true, CCR);
 
 	return dp;
 }
@@ -924,7 +924,7 @@ void TestPlan::testCcrBailoutGasSelection()
 	dive.dcs[0].divemode = CCR;
 	prefs.dobailout = true;
 
-	auto testPlan = setupPlanCcr();
+	auto testPlan = setupPlanCcr(1300);
 
 	plan(&test_deco_state, testPlan, &dive, 0, 60, cache, true, false, nullptr);
 
@@ -951,6 +951,39 @@ void TestPlan::testCcrBailoutGasSelection()
 	// check expected run time of 51 minutes
 	QVERIFY(compareDecoTime(dive.dcs[0].duration.seconds, 51 * 60, 51 * 60));
 
+}
+
+// A closed circuit plan used to get no oxygen warnings whatsoever, so a
+// setpoint above the diver's own limit - and any hypoxic or hyperoxic gas on
+// the bailout legs, which are open circuit at depth - went unmentioned.
+void TestPlan::testCcrOxygenWarnings()
+{
+	setupPrefs();
+	prefs.unit_system = METRIC;
+	prefs.units.length = units::METERS;
+	prefs.planner_deco_mode = BUEHLMANN;
+	prefs.dobailout = true;
+	dive.dcs[0].divemode = CCR;
+
+	// The bottom segment is entered by hand, so it is judged against
+	// prefs.bottompo2. Plan it at a setpoint above that limit.
+	prefs.bottompo2 = 1400;
+	{
+		deco_state_cache cache;
+		auto highSetpoint = setupPlanCcr(1600);
+		plan(&test_deco_state, highSetpoint, &dive, 0, 60, cache, true, false, nullptr);
+		QVERIFY(dive.notes.find("high pO") != std::string::npos);
+	}
+
+	// The same plan at a setpoint the diver asked for is not a warning, so the
+	// check is reporting the setpoint rather than firing on every CCR plan.
+	{
+		deco_state_cache cache;
+		auto okSetpoint = setupPlanCcr(1300);
+		plan(&test_deco_state, okSetpoint, &dive, 0, 60, cache, true, false, nullptr);
+		QVERIFY(dive.notes.find("high pO") == std::string::npos);
+		QVERIFY(dive.notes.find("low pO") == std::string::npos);
+	}
 }
 
 QTEST_GUILESS_MAIN(TestPlan)
