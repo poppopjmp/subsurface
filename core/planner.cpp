@@ -610,14 +610,18 @@ static int wait_until(struct deco_state *ds, struct dive *dive, int clock, int m
 // returns an (average_depth, maximum_depth) pair
 static std::pair<depth_t, depth_t> average_max_depth(const struct diveplan &dive)
 {
-	depth_t integral; // Strictly speaking not a depth, but depth × time. Might want to define a custom time for that.
+	// depth × time, which is not a depth and does not fit in one: a plan
+	// averaging 80 m over eight hours is already 2.3e9 mm·s, past what the
+	// 32 bit depth_t this used to accumulate into can hold. Keep the running
+	// total in 64 bits and only narrow it once the average has been taken.
+	int64_t integral = 0;
 	depth_t last_depth, max_depth;
 	int last_time = 0;
 
 	for (auto &dp: dive.dp) {
 		if (dp.time) {
 			/* Ignore gas indication samples */
-			integral += (dp.depth + last_depth) * (dp.time - last_time) / 2;
+			integral += (int64_t)(dp.depth.mm + last_depth.mm) * (dp.time - last_time) / 2;
 			last_time = dp.time;
 			last_depth = dp.depth;
 			if (dp.depth.mm > max_depth.mm)
@@ -625,7 +629,7 @@ static std::pair<depth_t, depth_t> average_max_depth(const struct diveplan &dive
 		}
 	}
 	if (last_time)
-		return { integral / last_time, max_depth };
+		return { depth_t { .mm = (int)(integral / last_time) }, max_depth };
 	return { 0_m, 0_m };
 }
 
