@@ -15,6 +15,11 @@ struct divedatapoint {
 	pressure_t minimum_gas;
 	int setpoint = 0;
 	bool entered = false;
+	// True when the segment ending at this point is time spent at a mandatory
+	// decompression stop, as opposed to bottom time or an ascent. The planner
+	// knows this and nothing else can reconstruct it afterwards, so it is
+	// recorded on the samples the plan produces.
+	bool in_deco = false;
 	enum divemode_t divemode = OC;
 
 	divedatapoint() = default;
@@ -62,7 +67,7 @@ extern int get_cylinderid_at_time(struct dive *dive, struct divecomputer *dc, du
 extern int ascent_velocity(depth_t depth, depth_t avg_depth, int);
 extern const char *get_planner_disclaimer();
 
-void plan_add_segment(struct diveplan &diveplan, int duration, depth_t depth, int cylinderid, int po2, bool entered, enum divemode_t divemode);
+void plan_add_segment(struct diveplan &diveplan, int duration, depth_t depth, int cylinderid, int po2, bool entered, enum divemode_t divemode, bool in_deco = false);
 #if DEBUG_PLAN
 void dump_plan(struct diveplan *diveplan);
 #endif

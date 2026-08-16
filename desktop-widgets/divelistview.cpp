@@ -602,11 +602,13 @@ void DiveListView::compareWithPlan()
 	if (selection.size() != 2)
 		return;
 
-	// The planned dive is the earlier of the two: a plan is made before the
-	// dive it describes. If they are simultaneous the selection order stands.
+	// Which one is the plan is not a question of time. The planner stamps a new
+	// plan an hour into the future, so the plan is usually the *later* of the
+	// two by timestamp - ask the dive itself instead. If both or neither are
+	// plans, the selection order stands.
 	dive *plan = selection[0];
 	dive *actual = selection[1];
-	if (actual->when < plan->when)
+	if (!plan->is_planned() && actual->is_planned())
 		std::swap(plan, actual);
 
 	DiveComparisonDialog dialog(this);

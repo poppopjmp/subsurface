@@ -39,15 +39,24 @@ struct dive_comparison {
 	depth_t plan_maxdepth, actual_maxdepth;
 	depth_t plan_meandepth, actual_meandepth;
 	duration_t plan_duration, actual_duration;
-	// Time spent in mandatory decompression, derived from the samples.
+	// Time spent in mandatory decompression, derived from the samples. Plenty
+	// of dive computers never record a decompression state at all, and a dive
+	// that does not say it was in deco is not the same thing as a dive that
+	// was not: without the *_deco_known flag below, an unknown reads as zero
+	// and every comparison against it shows the other side as pure excess.
 	duration_t plan_deco_time, actual_deco_time;
+	bool plan_deco_known = false, actual_deco_known = false;
 	// Sum over all cylinders.
 	volume_t plan_gas_used, actual_gas_used;
 
 	// actual - plan. Positive means the dive exceeded the plan.
 	depth_t maxdepth_delta, meandepth_delta;
-	duration_t duration_delta, deco_time_delta;
+	duration_t duration_delta;
+	// Only meaningful when both sides of the deco time are known.
+	duration_t deco_time_delta;
 	volume_t gas_used_delta;
+
+	bool deco_time_comparable() const { return plan_deco_known && actual_deco_known; }
 
 	// Sampled every sample of the actual dive: how far its depth was from the
 	// planned depth at the same elapsed time. Useful as a single "did I fly the

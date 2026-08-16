@@ -91,12 +91,20 @@ void DiveComparisonModel::rebuild()
 				 comparison.duration_delta.seconds),
 			comparison.duration_delta.seconds > 0});
 
+	// A dive computer that never reported a decompression state has not told us
+	// the deco time was zero, so say we do not know rather than turning the
+	// other side's real deco into a difference it did not have.
+	const QString unknown = tr("n/a");
 	rows.push_back({tr("Deco time"),
-			formatMinutes(comparison.plan_deco_time.seconds),
-			formatMinutes(comparison.actual_deco_time.seconds),
-			withSign(formatMinutes(comparison.deco_time_delta.seconds),
-				 comparison.deco_time_delta.seconds),
-			comparison.deco_time_delta.seconds > 0});
+			comparison.plan_deco_known ? formatMinutes(comparison.plan_deco_time.seconds)
+						   : unknown,
+			comparison.actual_deco_known ? formatMinutes(comparison.actual_deco_time.seconds)
+						     : unknown,
+			comparison.deco_time_comparable()
+				? withSign(formatMinutes(comparison.deco_time_delta.seconds),
+					   comparison.deco_time_delta.seconds)
+				: unknown,
+			comparison.deco_time_comparable() && comparison.deco_time_delta.seconds > 0});
 
 	rows.push_back({tr("Gas used"),
 			get_volume_string(comparison.plan_gas_used, units),

@@ -13,6 +13,8 @@ private slots:
 	void testDepthDeviationIsInterpolated();
 	void testAscentRateViolations();
 	void testDecoTimeFromSamples();
+	void testDecoTimeUnknownIsNotZero();
+	void testPlannerRecordsItsOwnDecoTime();
 	void testSelectableDivesSkipsProfilelessDives();
 };
 

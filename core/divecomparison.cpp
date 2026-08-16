@@ -42,7 +42,9 @@ static depth_t depth_at(const struct divecomputer &dc, int seconds)
 
 // Time spent under a mandatory stop. Samples carry in_deco, and where a dive
 // computer does not set it we fall back to a non-zero stopdepth, which is the
-// same thing expressed differently.
+// same thing expressed differently. A sample's flag describes the interval
+// that begins at it, which is how the planner writes it and how a stream of
+// dive computer samples reads in aggregate.
 static duration_t deco_time(const struct divecomputer &dc)
 {
 	duration_t total;
@@ -53,6 +55,25 @@ static duration_t deco_time(const struct divecomputer &dc)
 		prev = &s;
 	}
 	return total;
+}
+
+// Whether the deco time computed above means anything for this dive computer.
+// Many computers record no decompression state whatsoever, and for those a
+// deco time of zero is an absence of data rather than an absence of deco.
+static bool deco_is_known(const struct divecomputer &dc)
+{
+	// The planner computes the decompression schedule itself and marks the
+	// samples, so a plan with nothing marked really did have no stops.
+	if (is_dc_planner(&dc))
+		return true;
+	// Otherwise we need to have seen the computer say something about deco:
+	// either that there was a stop, or - during the no-stop part of a dive
+	// that it was tracking - how long until there would be one.
+	for (const auto &s: dc.samples) {
+		if (s.in_deco || s.stopdepth.mm > 0 || s.ndl.seconds > 0 || s.tts.seconds > 0)
+			return true;
+	}
+	return false;
 }
 
 static std::vector<ascent_violation> find_ascent_violations(const struct divecomputer &dc,
@@ -123,13 +144,16 @@ dive_comparison compare_dives(const struct dive *plan, const struct dive *actual
 	res.actual_duration = actual->duration;
 	res.plan_deco_time = deco_time(plan_dc);
 	res.actual_deco_time = deco_time(actual_dc);
+	res.plan_deco_known = deco_is_known(plan_dc);
+	res.actual_deco_known = deco_is_known(actual_dc);
 	res.plan_gas_used = total_gas_used(plan);
 	res.actual_gas_used = total_gas_used(actual);
 
 	res.maxdepth_delta = res.actual_maxdepth - res.plan_maxdepth;
 	res.meandepth_delta = res.actual_meandepth - res.plan_meandepth;
 	res.duration_delta = res.actual_duration - res.plan_duration;
-	res.deco_time_delta = res.actual_deco_time - res.plan_deco_time;
+	if (res.deco_time_comparable())
+		res.deco_time_delta = res.actual_deco_time - res.plan_deco_time;
 	res.gas_used_delta = res.actual_gas_used - res.plan_gas_used;
 
 	// Largest gap between the two profiles at the same elapsed time. Walk the

@@ -293,6 +293,13 @@ static void create_dive_from_plan(struct diveplan &diveplan, struct dive *dive, 
 
 		sample = create_sample(*dc, time, depth, dp.entered);
 		sample->setpoint.mbar = po2;
+		/* A sample's deco flag describes the interval that begins at it, so it
+		 * is the sample at the start of this segment that gets marked. Without
+		 * this a saved plan carries no trace of its own decompression, and
+		 * anything comparing a plan with the dive that followed it would read
+		 * the plan as having had no deco obligation at all. */
+		if (dp.in_deco)
+			sample[-1].in_deco = true;
 		if (dp.entered)
 			last_manual_point = time;
 		lastdepth = depth;
@@ -335,10 +342,11 @@ static void add_to_end_of_diveplan(struct diveplan &diveplan, const struct dived
 	diveplan.dp.back().time += lasttime;
 }
 
-void plan_add_segment(struct diveplan &diveplan, int duration, depth_t depth, int cylinderid, int po2, bool entered, enum divemode_t divemode)
+void plan_add_segment(struct diveplan &diveplan, int duration, depth_t depth, int cylinderid, int po2, bool entered, enum divemode_t divemode, bool in_deco)
 {
 	struct divedatapoint dp(duration, depth, cylinderid, divemode == CCR ? po2 : 0, entered);
 	dp.divemode = divemode;
+	dp.in_deco = in_deco;
 	add_to_end_of_diveplan(diveplan, dp);
 }
 
@@ -902,7 +910,7 @@ planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct di
 							!trial_ascent(ds, 0, depth, stoplevels[stopidx - 1], avg_depth, bottom_time,
 							dive->get_cylinder(current_cylinder)->gasmix, po2, diveplan.surface_pressure.mbar / 1000.0, dive, divemode) || get_o2(dive->get_cylinder(current_cylinder)->gasmix) < 160) {
 						if (is_final_plan)
-							plan_add_segment(diveplan, clock - previous_point_time, depth, current_cylinder, po2, false, divemode);
+							plan_add_segment(diveplan, clock - previous_point_time, depth, current_cylinder, po2, false, divemode, stopping);
 						stopping = true;
 						previous_point_time = clock;
 						current_cylinder = gaschanges[gi].gasidx;
@@ -1003,7 +1011,7 @@ planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct di
 							o2break_next = true;
 							breakfrom_cylinder = current_cylinder;
 							if (is_final_plan)
-								plan_add_segment(diveplan, laststoptime, depth, current_cylinder, po2, false, divemode);
+								plan_add_segment(diveplan, laststoptime, depth, current_cylinder, po2, false, divemode, true);
 							previous_point_time = clock + laststoptime;
 							current_cylinder = break_cylinder;
 						}
@@ -1013,7 +1021,7 @@ planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct di
 							o2breaking  = true;
 							o2break_next = false;
 							if (is_final_plan)
-								plan_add_segment(diveplan, laststoptime, depth, current_cylinder, po2, false, divemode);
+								plan_add_segment(diveplan, laststoptime, depth, current_cylinder, po2, false, divemode, true);
 							previous_point_time = clock + laststoptime;
 							current_cylinder = breakfrom_cylinder;
 						}
@@ -1032,7 +1040,7 @@ planner_error_t plan(struct deco_state *ds, struct diveplan &diveplan, struct di
 			if (stopping) {
 				/* Next we will ascend again. Add a waypoint if we have spend deco time */
 				if (is_final_plan)
-					plan_add_segment(diveplan, clock - previous_point_time, depth, current_cylinder, po2, false, divemode);
+					plan_add_segment(diveplan, clock - previous_point_time, depth, current_cylinder, po2, false, divemode, true);
 				previous_point_time = clock;
 				stopping = false;
 			}

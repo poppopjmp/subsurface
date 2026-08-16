@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0
 #include "testdivecomparison.h"
 
+#include "core/deco.h"
 #include "core/dive.h"
 #include "core/divecomparison.h"
 #include "core/divecomputer.h"
 #include "core/divelist.h"
 #include "core/divelog.h"
+#include "core/equipment.h"
+#include "core/gas.h"
+#include "core/planner.h"
+#include "core/pref.h"
 #include "core/sample.h"
 
 #include <QTest>
@@ -50,6 +55,46 @@ std::unique_ptr<struct dive> square_dive(int depth_mm, int bottom_seconds)
 	int ascent = depth_mm * 60 / 6000;
 	return make_dive({{0, 0}, {60, depth_mm}, {60 + bottom_seconds, depth_mm},
 			  {60 + bottom_seconds + ascent, 0}});
+}
+
+// A dive computer that tracks decompression says so even when there is none to
+// do, by reporting a no-stop time. Fixtures that want to stand in for such a
+// computer have to say it too, otherwise their deco time is unknown rather
+// than zero - which is the whole point of the distinction.
+void mark_deco_tracked(struct dive &d)
+{
+	for (auto &s: d.dcs[0].samples)
+		s.ndl.seconds = 99 * 60;
+}
+
+// Build a plan the way the planner does: enter a descent and a bottom segment
+// by hand, then let plan() compute the ascent and any stops it needs.
+std::unique_ptr<struct dive> planned_dive(depth_t depth, int bottom_seconds)
+{
+	auto d = std::make_unique<struct dive>();
+	d->dcs.emplace_back();
+	make_planner_dc(&d->dcs[0]);
+
+	cylinder_t *cyl = d->get_or_create_cylinder(0);
+	cyl->gasmix = gasmix_air;
+	cyl->type.size = 24_l;
+	cyl->type.workingpressure = 232_bar;
+	reset_cylinders(d.get(), true);
+
+	diveplan dp;
+	dp.salinity = 10300;
+	dp.surface_pressure = 1_atm;
+	dp.bottomsac = prefs.bottomsac;
+	dp.decosac = prefs.decosac;
+	dp.gflow = 100;
+	dp.gfhigh = 100;
+	plan_add_segment(dp, depth.mm / prefs.descrate, depth, 0, 0, true, OC);
+	plan_add_segment(dp, bottom_seconds, depth, 0, 0, true, OC);
+
+	struct deco_state ds = {};
+	deco_state_cache cache;
+	plan(&ds, dp, d.get(), 0, 60, cache, true, false, nullptr);
+	return d;
 }
 
 } // namespace
@@ -150,15 +195,17 @@ void TestDiveComparison::testAscentRateViolations()
 void TestDiveComparison::testDecoTimeFromSamples()
 {
 	auto plan = square_dive(30000, 1200);
+	mark_deco_tracked(*plan);
 	auto actual = square_dive(30000, 1200);
 
-	// mark two intervals of the actual dive as being in deco. Each sample's
+	// mark one interval of the actual dive as being in deco. Each sample's
 	// flag covers the span until the next sample.
 	actual->dcs[0].samples[1].in_deco = true;	// t=60 .. t=1260
 	QVERIFY(actual->dcs[0].samples.size() >= 3);
 
 	auto c = compare_dives(plan.get(), actual.get());
 	QVERIFY(c.valid);
+	QVERIFY(c.deco_time_comparable());
 	QCOMPARE(c.plan_deco_time.seconds, 0);
 	QCOMPARE(c.actual_deco_time.seconds, 1200);
 	QCOMPARE(c.deco_time_delta.seconds, 1200);
@@ -168,6 +215,62 @@ void TestDiveComparison::testDecoTimeFromSamples()
 	viaStop->dcs[0].samples[1].stopdepth.mm = 6000;
 	auto c2 = compare_dives(plan.get(), viaStop.get());
 	QCOMPARE(c2.actual_deco_time.seconds, 1200);
+}
+
+void TestDiveComparison::testDecoTimeUnknownIsNotZero()
+{
+	// Neither dive says anything at all about decompression, which is what a
+	// depth-and-time-only computer - or an imported profile - looks like.
+	auto plan = square_dive(30000, 1200);
+	auto actual = square_dive(30000, 1200);
+
+	auto c = compare_dives(plan.get(), actual.get());
+	QVERIFY(c.valid);
+	QVERIFY(!c.plan_deco_known);
+	QVERIFY(!c.actual_deco_known);
+	QVERIFY(!c.deco_time_comparable());
+
+	// The dive picked up deco but the plan never recorded whether it had any.
+	// Reporting that as "20 minutes more than planned" would be an invention,
+	// so the delta stays put and the caller is told why.
+	auto withDeco = square_dive(30000, 1200);
+	withDeco->dcs[0].samples[1].in_deco = true;
+	auto c2 = compare_dives(plan.get(), withDeco.get());
+	QVERIFY(c2.actual_deco_known);
+	QVERIFY(!c2.plan_deco_known);
+	QVERIFY(!c2.deco_time_comparable());
+	QCOMPARE(c2.deco_time_delta.seconds, 0);
+}
+
+void TestDiveComparison::testPlannerRecordsItsOwnDecoTime()
+{
+	prefs = default_prefs;
+	prefs.unit_system = METRIC;
+	prefs.units.length = units::METERS;
+	prefs.planner_deco_mode = BUEHLMANN;
+	prefs.last_stop = false;
+
+	// 45 m for 25 minutes on air is well past any no-stop limit, so the
+	// planner has to schedule stops for it.
+	auto plan = planned_dive(45_m, 25 * 60);
+	QVERIFY(!plan->dcs[0].samples.empty());
+
+	auto c = compare_dives(plan.get(), plan.get());
+	QVERIFY(c.valid);
+	// A plan is authoritative about its own decompression, so it is never
+	// "unknown" even when the answer is zero.
+	QVERIFY(c.plan_deco_known);
+	QVERIFY(c.deco_time_comparable());
+	QVERIFY(c.plan_deco_time.seconds > 0);
+	// and the deco time is a part of the dive, not longer than the whole
+	QVERIFY(c.plan_deco_time.seconds < plan->dcs[0].duration.seconds);
+
+	// A no-stop dive plans no stops, and says so rather than saying nothing.
+	auto shallow = planned_dive(12_m, 20 * 60);
+	auto c2 = compare_dives(shallow.get(), shallow.get());
+	QVERIFY(c2.valid);
+	QVERIFY(c2.plan_deco_known);
+	QCOMPARE(c2.plan_deco_time.seconds, 0);
 }
 
 void TestDiveComparison::testSelectableDivesSkipsProfilelessDives()
