@@ -1462,7 +1462,7 @@ void DivePlannerPointsModel::createPlan(bool saveAsNew)
 	planCreated(); // This signal will exit the UI from planner state.
 }
 
-QVariantMap DivePlannerPointsModel::calculatePlan(const QVariantList &cylindersData, const QVariantList &segmentsData, const QString &date, const QString &time, int diveMode, int waterType, bool shouldSave)
+QVariantMap DivePlannerPointsModel::calculatePlan(const QVariantList &cylindersData, const QVariantList &segmentsData, const QString &date, const QString &time, int diveMode, int waterType, int altitude, bool shouldSave)
 {
 	if (d) {
 		delete d;
@@ -1542,7 +1542,11 @@ QVariantMap DivePlannerPointsModel::calculatePlan(const QVariantList &cylindersD
 	diveplan.gfhigh = gfHigh();
 	diveplan.bottomsac = qPrefDivePlanner::bottomsac();
 	diveplan.decosac = qPrefDivePlanner::decosac();
-	diveplan.surface_pressure = d->get_surface_pressure();
+	// A dive at altitude decompresses against a lower surface pressure and so
+	// needs a longer ascent. Mobile had no way to say where the water was, so
+	// every plan was computed at sea level whether or not the diver was there.
+	d->surface_pressure = altitude_to_pressure(units_to_depth(altitude).mm);
+	diveplan.surface_pressure = d->surface_pressure;
 	diveplan.vpmb_conservatism = qPrefTechnicalDetails::vpmb_conservatism();
 
 	// Run the planner engine

@@ -95,7 +95,7 @@ TemplatePage {
 
 			var planResult = Backend.divePlannerPointsModel.calculatePlan(
 				cylinderData, segmentData, planDate.text, planTime.text,
-				overallDivemode.currentIndex, salinity, savePlan
+				overallDivemode.currentIndex, salinity, altitudeField.value, savePlan
 			)
 			if (savePlan) {
 				var newDiveId = planResult.newDiveId
@@ -234,6 +234,24 @@ TemplatePage {
 				model: [ qsTr("Sea Water"), qsTr("Fresh Water"), qsTr("EN13319") ]
 				currentIndex: 0 // Default to Sea water
 				onActivated: {
+					generatePlan();
+				}
+			}
+			TemplateLabel {
+				text: qsTr("Altitude [%1]").arg(depthUnit)
+				verticalAlignment: Text.AlignVCenter
+			}
+			// A dive at altitude decompresses against a lower surface pressure,
+			// so a mountain lake plan is not the same dive as a sea level one.
+			TemplateSpinBox {
+				id: altitudeField
+				Layout.fillWidth: true
+				// same range the desktop planner offers
+				from: (Backend.length === Enums.METERS) ? -100 : -300
+				to: (Backend.length === Enums.METERS) ? 3000 : 10000
+				stepSize: (Backend.length === Enums.METERS) ? 100 : 500
+				value: 0
+				onValueModified: {
 					generatePlan();
 				}
 			}

@@ -110,8 +110,11 @@ slots:
 	void setAscratelast6mDisplay(int rate);
 	void setDescrateDisplay(int rate);
 	void addReverseProfile();
+	// altitude is the height of the water above sea level, in the user's
+	// current depth units, the way the mobile UI collects it.
 	Q_INVOKABLE QVariantMap calculatePlan(const QVariantList &cylinders, const QVariantList &segments,
-				const QString &date, const QString &time, int diveMode, int waterType, bool shouldSave);
+				const QString &date, const QString &time, int diveMode, int waterType,
+				int altitude, bool shouldSave);
 	Q_INVOKABLE QVariantList calculateGasInfo(const QString &cylinderType, int o2_permille, int he_permille);
 		
 signals:
