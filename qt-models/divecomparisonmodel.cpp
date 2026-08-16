@@ -113,8 +113,15 @@ void DiveComparisonModel::rebuild()
 				 comparison.gas_used_delta.mliter),
 			comparison.gas_used_delta.mliter > 0});
 
-	// Not a plan/actual pair - it is a single number describing how far the
-	// dive strayed from the planned profile, so only the delta column is filled.
+	rows.push_back({tr("Time above ceiling"),
+			formatMinutes(comparison.plan_time_above_ceiling.seconds),
+			formatMinutes(comparison.actual_time_above_ceiling.seconds),
+			withSign(formatMinutes(comparison.time_above_ceiling_delta.seconds),
+				 comparison.time_above_ceiling_delta.seconds),
+			comparison.actual_time_above_ceiling.seconds > 0});
+
+	// Not a plan/actual pair - they are single numbers describing how far the
+	// dive strayed, so only the delta column is filled.
 	rows.push_back({tr("Max deviation from plan"),
 			QString(),
 			QString(),
@@ -122,6 +129,16 @@ void DiveComparisonModel::rebuild()
 				.arg(get_depth_string(comparison.max_depth_deviation, units),
 				     formatMinutes(comparison.max_depth_deviation_at.seconds)),
 			comparison.max_depth_deviation.mm > 0});
+
+	rows.push_back({tr("Deepest ceiling breach"),
+			QString(),
+			QString(),
+			comparison.max_ceiling_excursion.mm > 0
+				? QStringLiteral("%1 @ %2")
+					  .arg(get_depth_string(comparison.max_ceiling_excursion, units),
+					       formatMinutes(comparison.max_ceiling_excursion_at.seconds))
+				: tr("none"),
+			comparison.max_ceiling_excursion.mm > 0});
 }
 
 bool DiveComparisonModel::isValid() const

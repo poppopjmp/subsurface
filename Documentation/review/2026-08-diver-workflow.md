@@ -157,24 +157,29 @@ below rather than pretended at.
 
 In rough order of how much it matters to a diver.
 
-### 5.1 Ceiling violations are only detected inside the planner
+### 5.1 Ceiling violations are not reported for a single dive
 
 `core/profile.cpp` computes a per-sample ceiling for every dive, logged ones
-included, but only compares it with the diver's actual depth when planning:
+included, but only compared it with the diver's actual depth when planning:
 
     // In the planner, if the ceiling is violated, add an event.
     if (in_planner && !pi.waypoint_above_ceiling &&
         entry.depth.mm < max_ceiling.mm - 100 && entry.sec > 0) {
 
-So a logged dive where the diver came up through the calculated ceiling is not
-flagged anywhere, and there is no "time spent above the ceiling" number for a
-debrief. The data is already there; what is missing is somewhere to put the
-answer that does not involve writing an event into the user's logged dive, which
-is what the planner path does (it casts away `const` and calls `add_event`).
+The comparison now does that comparison itself, for both sides, and reports
+"Time above ceiling" and "Deepest ceiling breach". It calls
+`create_plot_info_new()` from `core/divecomparison.cpp` and reads `entry.ceiling`
+rather than duplicating the deco model, and it uses the same 10 cm slop the
+planner does so the two agree about what counts as a violation. The test builds
+the clean side through the planner rather than by hand, because hand writing a
+"clean" profile is only a guess at the schedule.
 
-The comparison table is the obvious home for it, but computing a ceiling in
-`core/divecomparison.cpp` means running the deco model, which currently only
-happens inside `create_plot_info_new()`. That is a design decision, not a patch.
+What is still missing is the same answer for **one** dive, without a plan to
+compare it against - which is the common case. That needs a surface in the dive
+details on both platforms, not more computation: `analyse_ceiling()` already
+returns everything such a view would show. It is not simply reusing the planner's
+path, because that path casts away `const` and writes an event into the dive,
+which is acceptable for a throwaway planner dive and not for the user's log.
 
 ### 5.2 A CCR plan gets no minimum gas line
 

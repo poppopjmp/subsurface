@@ -86,8 +86,10 @@ std::unique_ptr<struct dive> planned_dive(depth_t depth, int bottom_seconds)
 	dp.surface_pressure = 1_atm;
 	dp.bottomsac = prefs.bottomsac;
 	dp.decosac = prefs.decosac;
-	dp.gflow = 100;
-	dp.gfhigh = 100;
+	// Plan against the same gradient factors the profile will later use to
+	// compute the ceiling, so the two agree about what the plan owed.
+	dp.gflow = prefs.gflow;
+	dp.gfhigh = prefs.gfhigh;
 	plan_add_segment(dp, depth.mm / prefs.descrate, depth, 0, 0, true, OC);
 	plan_add_segment(dp, bottom_seconds, depth, 0, 0, true, OC);
 
@@ -271,6 +273,49 @@ void TestDiveComparison::testPlannerRecordsItsOwnDecoTime()
 	QVERIFY(c2.valid);
 	QVERIFY(c2.plan_deco_known);
 	QCOMPARE(c2.plan_deco_time.seconds, 0);
+}
+
+void TestDiveComparison::testCeilingBreachIsDetectedOnLoggedDives()
+{
+	prefs = default_prefs;
+	prefs.unit_system = METRIC;
+	prefs.units.length = units::METERS;
+	prefs.planner_deco_mode = BUEHLMANN;
+
+	// A dive that has to be somewhere near a real one, or the deco model has
+	// nothing to say: 45 m on air for 25 minutes, then straight to the surface
+	// in a minute. That is well past the no-stop limit and the diver misses
+	// every stop the model would have asked for.
+	auto reckless = make_dive({{0, 0}, {120, 45000}, {1620, 45000}, {1680, 0}, {1800, 0}});
+	reckless->dcs[0].divemode = OC;
+	cylinder_t *cyl = reckless->get_or_create_cylinder(0);
+	cyl->gasmix = gasmix_air;
+	cyl->type.size = 24_l;
+	cyl->type.workingpressure = 232_bar;
+	reset_cylinders(reckless.get(), true);
+
+	// The plan for that dive, which by construction sits out every stop the
+	// same model asks for. Hand writing a "clean" profile would only be
+	// guessing at the schedule; letting the planner produce it is the point.
+	auto careful = planned_dive(45_m, 25 * 60);
+
+	auto c = compare_dives(careful.get(), reckless.get());
+	QVERIFY(c.valid);
+	// The dive that blew off its deco spent real time above its ceiling and
+	// the one that sat it out did not.
+	QVERIFY(c.actual_time_above_ceiling.seconds > 0);
+	QCOMPARE(c.plan_time_above_ceiling.seconds, 0);
+	QCOMPARE(c.time_above_ceiling_delta.seconds, c.actual_time_above_ceiling.seconds);
+	// and the breach is reported with a depth and a time, not just a duration
+	QVERIFY(c.max_ceiling_excursion.mm > ceiling_slop_mm);
+	QVERIFY(c.max_ceiling_excursion_at.seconds > 0);
+
+	// Turning the comparison around puts the clean dive in the dive column,
+	// which is where a clean result has to show as clean.
+	auto rev = compare_dives(reckless.get(), careful.get());
+	QCOMPARE(rev.actual_time_above_ceiling.seconds, 0);
+	QCOMPARE(rev.max_ceiling_excursion.mm, 0);
+	QVERIFY(rev.time_above_ceiling_delta.seconds < 0);
 }
 
 void TestDiveComparison::testSelectableDivesSkipsProfilelessDives()

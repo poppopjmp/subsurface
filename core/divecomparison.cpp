@@ -6,6 +6,7 @@
 #include "divelist.h"
 #include "divelog.h"
 #include "divecomputer.h"
+#include "profile.h"
 #include "sample.h"
 #include "statistics.h"
 
@@ -106,6 +107,40 @@ static std::vector<ascent_violation> find_ascent_violations(const struct divecom
 	return res;
 }
 
+// The result of walking a dive's profile against the ceiling the decompression
+// model owed it at each point.
+struct ceiling_analysis {
+	duration_t time_above;
+	depth_t worst_excursion;
+	duration_t worst_excursion_at;
+};
+
+// Subsurface already computes a ceiling for every plot entry of every dive,
+// logged ones included - create_plot_info_new() runs the deco model whether or
+// not the profile is going to draw the result. All that was missing was
+// comparing it with where the diver actually was.
+static ceiling_analysis analyse_ceiling(const struct dive *d, const struct divecomputer &dc)
+{
+	ceiling_analysis res;
+	plot_info pi = create_plot_info_new(d, &dc, nullptr);
+
+	const struct plot_data *prev = nullptr;
+	for (const auto &entry: pi.entry) {
+		// A sample's state describes the interval that begins at it, matching
+		// how the deco time above is counted.
+		if (prev && prev->ceiling.mm - prev->depth.mm > ceiling_slop_mm)
+			res.time_above.seconds += entry.sec - prev->sec;
+
+		int excursion = entry.ceiling.mm - entry.depth.mm;
+		if (excursion > ceiling_slop_mm && excursion > res.worst_excursion.mm) {
+			res.worst_excursion.mm = excursion;
+			res.worst_excursion_at.seconds = entry.sec;
+		}
+		prev = &entry;
+	}
+	return res;
+}
+
 static volume_t total_gas_used(const struct dive *d)
 {
 	volume_t total;
@@ -168,6 +203,17 @@ dive_comparison compare_dives(const struct dive *plan, const struct dive *actual
 	}
 
 	res.ascent_violations = find_ascent_violations(actual_dc, ascent_limit_mm_per_min);
+
+	// The plan is analysed too: a hand entered ascent can breach its own
+	// ceiling just as a dive can, and seeing that the plan was clean is what
+	// makes the dive's number mean something.
+	ceiling_analysis plan_ceiling = analyse_ceiling(plan, plan_dc);
+	ceiling_analysis actual_ceiling = analyse_ceiling(actual, actual_dc);
+	res.plan_time_above_ceiling = plan_ceiling.time_above;
+	res.actual_time_above_ceiling = actual_ceiling.time_above;
+	res.time_above_ceiling_delta = res.actual_time_above_ceiling - res.plan_time_above_ceiling;
+	res.max_ceiling_excursion = actual_ceiling.worst_excursion;
+	res.max_ceiling_excursion_at = actual_ceiling.worst_excursion_at;
 
 	res.valid = true;
 	return res;

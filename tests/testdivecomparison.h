@@ -15,6 +15,7 @@ private slots:
 	void testDecoTimeFromSamples();
 	void testDecoTimeUnknownIsNotZero();
 	void testPlannerRecordsItsOwnDecoTime();
+	void testCeilingBreachIsDetectedOnLoggedDives();
 	void testSelectableDivesSkipsProfilelessDives();
 };
 

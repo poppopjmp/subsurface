@@ -64,12 +64,26 @@ struct dive_comparison {
 	depth_t max_depth_deviation;
 	duration_t max_depth_deviation_at;
 
+	// Time spent shallower than the ceiling the decompression model says was
+	// owed, and the worst single excursion above it. Subsurface computes a
+	// per-sample ceiling for every dive, but until now only the planner ever
+	// compared it against the depth the diver was actually at, so a logged
+	// dive that came up through its own ceiling said nothing about it.
+	duration_t plan_time_above_ceiling, actual_time_above_ceiling;
+	duration_t time_above_ceiling_delta;
+	depth_t max_ceiling_excursion;
+	duration_t max_ceiling_excursion_at;
+
 	std::vector<ascent_violation> ascent_violations;
 };
 
 // The rate above which an ascent is reported. Subsurface's own default ascent
 // rates are below this; 10 m/min is the widely taught recreational ceiling.
 constexpr int default_ascent_limit_mm_per_min = 10000;
+
+// How far above the ceiling counts as being above it. The planner uses the same
+// 10 cm before it calls a waypoint a violation, so the two agree.
+constexpr int ceiling_slop_mm = 100;
 
 dive_comparison compare_dives(const struct dive *plan, const struct dive *actual,
 			      int ascent_limit_mm_per_min = default_ascent_limit_mm_per_min);
