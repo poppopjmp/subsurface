@@ -199,10 +199,18 @@ static void cochran_debug_sample(const char *s, unsigned int sample_cnt)
 
 #endif  // COCHRAN_DEBUG
 
-static void cochran_parse_header(const unsigned char *decode, unsigned mod,
-				 const unsigned char *in, unsigned size)
+// Returns 0 on success, -1 if the header cannot be made sense of.
+static int cochran_parse_header(const unsigned char *decode, unsigned mod,
+				const unsigned char *in, unsigned size)
 {
+	// The log type is read from buf[0x133] and reported from buf[0x137],
+	// so anything shorter than that has no header to parse.
+	if (size <= 0x137)
+		return -1;
+
 	unsigned char *buf = (unsigned char *)malloc(size);
+	if (!buf)
+		return -1;
 
 	/* Do the "null decode" using a one-byte decode array of '\0' */
 	/* Copies in plaintext, will be overwritten later */
@@ -238,10 +246,12 @@ static void cochran_parse_header(const unsigned char *decode, unsigned mod,
 		config.sample_size = 3;
 		break;
 	default:
-		printf ("Unknown log format v%c\n", buf[0x137]);
+		// This used to call exit(1). Opening a file whose log format we do
+		// not recognise is a perfectly ordinary thing for a user to do, and
+		// it killed the application along with any unsaved dive log.
+		report_error(translate("gettextFromC", "Unknown Cochran log format v%c"), buf[0x137]);
 		free(buf);
-		exit(1);
-		break;
+		return -1;
 	}
 
 #ifdef COCHRAN_DEBUG
@@ -250,6 +260,7 @@ static void cochran_parse_header(const unsigned char *decode, unsigned mod,
 #endif
 
 	free(buf);
+	return 0;
 }
 
 /*
@@ -784,32 +795,54 @@ int try_to_open_cochran(const char *, std::string &mem, struct divelog *log)
 {
 	unsigned int i;
 	unsigned int mod;
-	unsigned int *offsets, dive1, dive2;
-	unsigned char *decode = (unsigned char *)mem.data() + 0x40001;
+	unsigned int dive1, dive2;
 
-	if (mem.size() < 0x40000)
+	// The decode table starts at 0x40001 and the largest offset read from it
+	// is 0x100, so the file has to be at least 0x40102 bytes long. The old
+	// guard only asked for 0x40000, which let a file of exactly that size read
+	// 0x102 bytes past the end - and formed the out-of-range decode pointer
+	// before checking the size at all.
+	if (mem.size() < 0x40102)
 		return 0;
 
-	offsets = (unsigned int *) mem.data();
-	dive1 = offsets[0];
-	dive2 = offsets[1];
+	const unsigned char *decode = (const unsigned char *)mem.data() + 0x40001;
+
+	// The offset table is read a byte at a time rather than through an
+	// unsigned int * cast: std::string::data() carries no alignment guarantee
+	// beyond char, and the file is little endian regardless of the host.
+	auto offset_at = [&mem](unsigned int idx) {
+		const unsigned char *p = (const unsigned char *)mem.data() + idx * 4;
+		return (unsigned int)p[0] | ((unsigned int)p[1] << 8) |
+		       ((unsigned int)p[2] << 16) | ((unsigned int)p[3] << 24);
+	};
+
+	dive1 = offset_at(0);
+	dive2 = offset_at(1);
 
 	if (dive1 < 0x40000 || dive2 < dive1 || dive2 > mem.size())
 		return 0;
 
 	mod = decode[0x100] + 1;
-	cochran_parse_header(decode, mod, (unsigned char *)mem.data() + 0x40000, dive1 - 0x40000);
+	if (cochran_parse_header(decode, mod, (const unsigned char *)mem.data() + 0x40000,
+				 dive1 - 0x40000) < 0)
+		return 0;
 
-	// Decode each dive
+	// Decode each dive. The offset table occupies the first 0x40000 bytes,
+	// which is 65536 entries, so reading offsets[i + 1] at i = 65534 is the
+	// last one that stays inside it.
 	for (i = 0; i < 65534; i++) {
-		dive1 = offsets[i];
-		dive2 = offsets[i + 1];
+		dive1 = offset_at(i);
+		dive2 = offset_at(i + 1);
 		if (dive2 < dive1)
 			break;
 		if (dive2 > mem.size())
 			break;
+		// dive1 addresses the dive data, which starts after the offset
+		// table. An offset pointing into the table itself is corrupt.
+		if (dive1 < 0x40000)
+			break;
 
-		cochran_parse_dive(decode, mod, (unsigned char *)mem.data() + dive1,
+		cochran_parse_dive(decode, mod, (const unsigned char *)mem.data() + dive1,
 						dive2 - dive1, log->dives);
 	}
 

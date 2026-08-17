@@ -33,6 +33,7 @@ MACRO_ENSURE_OUT_OF_SOURCE_BUILD(
 
 #Option for memory debugging
 option(SUBSURFACE_ASAN_BUILD "enable memory debugging of Subsurface binary" OFF)
+option(SUBSURFACE_UBSAN_BUILD "enable undefined behaviour checking of Subsurface binary" OFF)
 
 #Option for profiling
 option(SUBSURFACE_PROFILING_BUILD "enable profiling of Subsurface binary" OFF)
@@ -127,10 +128,32 @@ if (SUBSURFACE_PROFILING_BUILD)
 	SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
 	SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -pg")
 endif()
-# set up ASan
+# Set up the sanitizers.
+#
+# The ASan block used to read
+#     SET(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+# which builds the C flags out of the *C++* flags - so every C++ only flag was
+# handed to the C compiler and -fsanitize=address ended up on the line twice. It
+# also never touched the linker flags, so whether the sanitizer runtime got
+# linked at all was left to the compiler driver's defaults.
+set(SUBSURFACE_SANITIZERS "")
 if (SUBSURFACE_ASAN_BUILD)
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-	SET(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+	list(APPEND SUBSURFACE_SANITIZERS address)
+endif()
+if (SUBSURFACE_UBSAN_BUILD)
+	list(APPEND SUBSURFACE_SANITIZERS undefined)
+endif()
+if (SUBSURFACE_SANITIZERS)
+	list(JOIN SUBSURFACE_SANITIZERS "," _sanitize_list)
+	# -fno-omit-frame-pointer so the reports name the function that did it;
+	# -fno-sanitize-recover so a finding fails the build's tests instead of
+	# printing a warning nobody reads.
+	set(_sanitize_flags "-fsanitize=${_sanitize_list} -fno-omit-frame-pointer -fno-sanitize-recover=all")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${_sanitize_flags}")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${_sanitize_flags}")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${_sanitize_flags}")
+	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${_sanitize_flags}")
+	message(STATUS "building with sanitizers: ${_sanitize_list}")
 endif()
 
 # Compiler-specific warning flags

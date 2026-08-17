@@ -421,21 +421,38 @@ int try_to_open_liquivision(const char *, std::string &mem, struct divelog *log)
 	unsigned int ptr;
 	int log_version;
 
+	// Every read here is from a file the user picked, so each one needs a
+	// bound. This used to read the first four bytes before establishing that
+	// there were four bytes - an empty file segfaulted on open - then use a
+	// length taken from the file to place the next read without checking it,
+	// and finally hand parse_dives() a size computed as buf_size - ptr, which
+	// underflows to nearly 4 GB as soon as ptr runs past the end.
+	if (buf_size < 4)
+		return 0;
+
 	// Get name length
 	unsigned int len = array_uint32_le(buf);
 	// Ignore length field and the name
+	if (len > buf_size - 4)
+		return 0;
 	ptr = 4 + len;
 
+	if (ptr > buf_size - 4)
+		return 0;
 	unsigned int dive_count = array_uint32_le(buf + ptr);
 	if (dive_count == 0xffffffff) {
 		// File version 3.0
 		log_version = 3;
 		ptr += 6;
+		if (ptr > buf_size - 4)
+			return 0;
 		dive_count = array_uint32_le(buf + ptr);
 	} else {
 		log_version = 2;
 	}
 	ptr += 4;
+	if (ptr > buf_size)
+		return 0;
 
 	parse_dives(log_version, buf + ptr, buf_size - ptr, log->dives, log->sites);
 

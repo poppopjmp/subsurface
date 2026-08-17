@@ -311,6 +311,11 @@ static std::string get_lt_string(const std::string &input, Lt_String &output)
 static void lt_auxiliary_parser(const std::string &buffer)
 {
 	std::size_t pos = buffer.find("INSERT INTO ");
+	// find() returns npos when the marker is absent, and substr(npos) throws.
+	// Nothing catches it, so opening any file that is not a Logtrak dump -
+	// including an empty one - terminated the application.
+	if (pos == std::string::npos)
+		return;
 	std::string runner = buffer.substr(pos);
 	while (pos < std::string::npos) {
 		std::string line = get_single_line(runner);
@@ -474,6 +479,11 @@ int logtrak_import(const std::string &mem, struct divelog *log)
 	lt_auxiliary_parser(mem);
 
 	pos = mem.find("INSERT INTO T_DIVE ");
+	// Same as in lt_auxiliary_parser(): no marker means this is not a Logtrak
+	// file, which is not an error - it is the normal outcome of Subsurface
+	// trying each importer in turn.
+	if (pos == std::string::npos)
+		return 0;
 	std::string runner = mem.substr(pos);
 
 	while (pos < std::string::npos) {

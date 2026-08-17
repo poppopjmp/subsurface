@@ -19,16 +19,34 @@
  * can only be called from a test method
  * invoked by the QTest framework
  */
+// Compare a file we just wrote against the reference copy in dives/.
+//
+// Three things this used to get wrong, all of which made it pass on output it
+// should have rejected: it ignored whether either file opened at all, so a
+// missing file compared two empty streams; it looped "while both still have
+// lines", so output that stopped early - or was empty - matched anything; and
+// it therefore never noticed extra lines at the end either. Check the opens,
+// check the length, then compare.
 #define FILE_COMPARE(actual, expected) \
 	do { \
 		QFile org(expected); \
-		org.open(QFile::ReadOnly); \
+		QVERIFY2(org.open(QFile::ReadOnly), \
+			 qPrintable(QStringLiteral("cannot open reference file ") + (expected))); \
 		QFile out(actual); \
-		out.open(QFile::ReadOnly); \
+		QVERIFY2(out.open(QFile::ReadOnly), \
+			 qPrintable(QStringLiteral("cannot open written file ") + (actual))); \
 		QTextStream orgS(&org); \
 		QTextStream outS(&out); \
 		QStringList readin = orgS.readAll().split("\n"); \
 		QStringList written = outS.readAll().split("\n"); \
+		/* split() on a trailing newline leaves one empty element; drop it \
+		 * from either side so a file that ends in a newline and one that \
+		 * does not still compare equal. */ \
+		if (!readin.isEmpty() && readin.last().isEmpty()) \
+			readin.removeLast(); \
+		if (!written.isEmpty() && written.last().isEmpty()) \
+			written.removeLast(); \
+		QCOMPARE(written.size(), readin.size()); \
 		while (readin.size() && written.size()) { \
 			QCOMPARE(written.takeFirst().trimmed(), \
 				readin.takeFirst().trimmed()); \
