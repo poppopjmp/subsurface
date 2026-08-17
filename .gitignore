@@ -43,6 +43,17 @@ packaging/ios/Qt
 packaging/ios/asset_catalog_compiler.Info.plist
 appdata/subsurface.appdata.xml
 android-mobile/Roboto-Regular.ttf
+# The test binaries write their output next to wherever they are run from.
+# ctest runs them in the build directory, which is already ignored, but running
+# one by hand from the source root leaves ~40 files behind that look like
+# untracked source. Anchored to the root so nothing under tests/ or dives/ is
+# affected.
+/test*.ssrf
+/test*.csv
+/test*.xml
+/test*.kml
+/test*.uddf
+/test*.divelogs
 android-mobile/.gradle/
 .secrets
 gh_release_notes.md
