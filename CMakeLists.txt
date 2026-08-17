@@ -656,14 +656,10 @@ if (SUBSURFACE_TARGET_EXECUTABLE MATCHES "MobileExecutable")
 		add_executable(${SUBSURFACE_TARGET} ${SUBSURFACE_PKG} ${SUBSURFACE_RESOURCES})
 	endif()
 	target_sources(${SUBSURFACE_TARGET} PUBLIC ${MOBILE_SRC} ${MOBILE_RESOURCES})
-	# ensure .qm files are built before the resource compiler runs
+	# ensure .qm files are built before the resource compiler runs. The
+	# "translations" target owns the lrelease commands for both Qt versions, so
+	# this one dependency is all that is needed.
 	add_dependencies(${SUBSURFACE_TARGET} translations)
-	if(USINGQT6)
-		# qt_add_translations() attaches .qm generation commands to both ${SUBSURFACE_TARGET}
-		# and ${PROJECT_NAME}_lrelease; Xcode's "new build system" requires a direct dependency
-		# between them.
-		add_dependencies(${SUBSURFACE_TARGET} ${PROJECT_NAME}_lrelease)
-	endif()
 	# tell qmlimportscanner where to find Kirigami's QML modules
 	set_target_properties(${SUBSURFACE_TARGET} PROPERTIES
 		QT_QML_IMPORT_PATH "${Kirigami_INSTALL_PREFIX}/lib/qml"

@@ -56,10 +56,32 @@ set(US_EN_PLURALS subsurface_en_US.ts)
 
 if(USINGQT6)
 	file(GLOB MOBILE_SOURCES ${CMAKE_SOURCE_DIR}/mobile-widgets/*.cpp ${CMAKE_SOURCE_DIR}/mobile-widgets/qml/*.qml)
-	qt_add_translations(${SUBSURFACE_TARGET} TS_FILES ${TRANSLATION_FILES} PLURALS_TS_FILE ${US_EN_PLURALS} SOURCES ${MOBILE_SOURCES} QM_FILES_OUTPUT_VARIABLE TRANSLATIONS)
-	add_custom_target(translations ALL)
-	# use add_dependencies (not DEPENDS) so the name is treated as a target, not a file
-	add_dependencies(translations ${PROJECT_NAME}_lrelease)
+
+	# qt_add_translations() wants the executable target to already exist, because
+	# it calls set_source_files_properties(... TARGET_DIRECTORY ${target}) eagerly.
+	# This directory is processed before the executable is created - it has to be,
+	# since ${TRANSLATIONS} is consumed while assembling that executable - so the
+	# call fails to configure at all on Qt 6.4. qt_add_lupdate() takes the target
+	# lazily, through a generator expression, so it is happy here, and driving
+	# lrelease ourselves keeps the .qm files available as plain files, which is
+	# what everything downstream of this actually wants.
+	qt_add_lupdate(${SUBSURFACE_TARGET} TS_FILES ${TRANSLATION_FILES} SOURCES ${MOBILE_SOURCES})
+
+	set(TRANSLATIONS "")
+	foreach(_ts_file ${TRANSLATION_FILES} ${US_EN_PLURALS})
+		get_filename_component(_ts_name ${_ts_file} NAME_WE)
+		set(_qm_file ${CMAKE_CURRENT_BINARY_DIR}/${_ts_name}.qm)
+		add_custom_command(
+			OUTPUT ${_qm_file}
+			COMMAND ${QT_CMAKE_EXPORT_NAMESPACE}::lrelease
+				${CMAKE_CURRENT_SOURCE_DIR}/${_ts_file} -qm ${_qm_file}
+			DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${_ts_file}
+			COMMENT "Generating ${_ts_name}.qm"
+			VERBATIM
+		)
+		list(APPEND TRANSLATIONS ${_qm_file})
+	endforeach()
+	add_custom_target(translations ALL DEPENDS ${TRANSLATIONS})
 else()
 	qt5_add_translation(TRANSLATIONS ${TRANSLATION_FILES} ${US_EN_PLURALS})
 	add_custom_target(translations ALL DEPENDS ${TRANSLATIONS})

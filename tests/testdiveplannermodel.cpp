@@ -3,6 +3,10 @@
 #include "qt-models/diveplannermodel.h"
 #include "core/subsurfacestartup.h"
 #include "commands/command.h"
+// This file constructs dives, so it needs the complete type. It used to get it
+// only by way of the MAP_SUPPORT includes below, so it stopped compiling on any
+// build without QtLocation - which is every distro on Qt 6.4.
+#include "core/dive.h"
 #include "core/divelog.h"
 #include <QSignalSpy>
 #include <memory>

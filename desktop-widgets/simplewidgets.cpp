@@ -106,7 +106,9 @@ ShiftTimesDialog::ShiftTimesDialog(std::vector<dive *> dives_in, QWidget *parent
 	when(0), dives(std::move(dives_in))
 {
 	ui.setupUi(this);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+// QDateTimeEdit::setTimeZone() replaced setTimeSpec() in Qt 6.7; Qt 6.0 to 6.6
+// still only have the deprecated spelling.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
 	ui.timeEdit->setTimeZone(QTimeZone::systemTimeZone());
 #else
 	ui.timeEdit->setTimeSpec(Qt::LocalTime);

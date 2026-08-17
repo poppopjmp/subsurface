@@ -6,6 +6,10 @@
 #define DIVELISTNOTIFIER_H
 
 #include "core/dive.h"
+// Q_DECLARE_METATYPE(dive_site *) below needs the complete type: since Qt 6.4
+// qmetatype.h static_asserts on sizeof(T), so a forward declaration no longer
+// compiles.
+#include "core/divesite.h"
 
 #include <QObject>
 

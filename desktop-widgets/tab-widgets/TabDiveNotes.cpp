@@ -29,7 +29,9 @@ TabDiveNotes::TabDiveNotes(MainTab *parent) : TabBase(parent),
 	currentTrip(0)
 {
 	ui.setupUi(this);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+// QDateTimeEdit::setTimeZone() replaced setTimeSpec() in Qt 6.7; Qt 6.0 to 6.6
+// still only have the deprecated spelling.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
 	ui.dateEdit->setTimeZone(QTimeZone::utc());
 	ui.timeEdit->setTimeZone(QTimeZone::utc());
 #else
