@@ -20,6 +20,12 @@ on:
     - scripts/**
     - .github/workflows/check-divecomputer-lists.yml
 
+concurrency:
+  # Cancel a superseded run on a pull request; let pushes to master finish,
+  # since those produce the nightly artifacts.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions: read-all
 
 jobs:

@@ -12,6 +12,12 @@ on:
     branches:
     - master
 
+concurrency:
+  # Cancel a superseded run on a pull request; let pushes to master finish,
+  # since those produce the nightly artifacts.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions: read-all
 
 jobs:
@@ -39,7 +45,9 @@ jobs:
         echo "CICD-pull-request" > latest-subsurface-buildnumber-extension
 
     - name: Set up LXD
-      uses: canonical/setup-lxd@main
+      # Pinned to a commit rather than @main: a branch ref runs whatever that
+      # branch points at today, in a job that holds the snap store credentials.
+      uses: canonical/setup-lxd@da2ac84e727dc534215fd14cd088b9209d65893b # main as of 2026-05-28
 
     - name: Set up CCache
       id: setup-ccache
@@ -65,7 +73,7 @@ jobs:
         path: ~/.ccache/**
 
     - name: Build and verify the snap
-      uses: canonical/actions/build-snap@release
+      uses: canonical/actions/build-snap@cb345b48c77065507280f3dd9d4f42299af2d1a6 # release as of 2026-06-25
       id: build-snap
       with:
         setup-lxd: false

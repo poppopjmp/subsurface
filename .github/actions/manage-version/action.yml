@@ -34,7 +34,7 @@ runs:
           echo "Need to supply the secret for the nightly-builds repository to increment the version number, aborting."
           exit 1
         fi
-        scripts/get-atomic-buildnr.sh $GITHUB_SHA $NIGHTLY_BUILDS_SECRET "CICD-release"
+        scripts/get-atomic-buildnr.sh "$GITHUB_SHA" "CICD-release"
 
     - name: retrieve the current version number in all other cases
       if: steps.get_new_build_number.outcome == 'skipped'
