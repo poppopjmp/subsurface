@@ -128,7 +128,6 @@ TestCase {
 		property bool spy16 : false
 		property bool spy17 : false
 		property bool spy18 : false
-		property bool spy19 : false
 		property bool spy20 : false
 		property bool spy21 : false
 		property bool spy22 : false
@@ -138,29 +137,29 @@ TestCase {
 
 		Connections {
 			target: PrefDivePlanner
-			onAscratelast6mChanged: {spyCatcher.spy1 = true }
-			onAscratestopsChanged: {spyCatcher.spy2 = true }
-			onAscrate50Changed: {spyCatcher.spy3 = true }
-			onAscrate75Changed: {spyCatcher.spy4 = true }
-			onBottompo2Changed: {spyCatcher.spy6 = true }
-			onBottomsacChanged: {spyCatcher.spy7 = true }
-			onDecopo2Changed: {spyCatcher.spy8 = true }
-			onDecosacChanged: {spyCatcher.spy9 = true }
-			onDescrateChanged: {spyCatcher.spy10 = true }
-			onDisplay_durationChanged: {spyCatcher.spy11 = true }
-			onDisplay_runtimeChanged: {spyCatcher.spy12 = true }
-			onDisplay_transitionsChanged: {spyCatcher.spy13 = true }
-			onDisplay_variationsChanged: {spyCatcher.spy14 = true }
-			onDoo2breaksChanged: {spyCatcher.spy15 = true }
-			onDrop_stone_modeChanged: {spyCatcher.spy16 = true }
-			onLast_stopChanged: {spyCatcher.spy17 = true }
-			onMin_switch_durationChanged: {spyCatcher.spy18 = true }
-			onProblemsolvingtimeChanged: {spyCatcher.spy20 = true }
-			onReserve_gasChanged: {spyCatcher.spy21 = true }
-			onSacfactorChanged: {spyCatcher.spy22 = true }
-			onSafetystopChanged: {spyCatcher.spy23 = true }
-			onSwitch_at_req_stopChanged: {spyCatcher.spy24 = true }
-			onVerbatim_planChanged: {spyCatcher.spy25 = true }
+			function onAscratelast6mChanged() {spyCatcher.spy1 = true }
+			function onAscratestopsChanged() {spyCatcher.spy2 = true }
+			function onAscrate50Changed() {spyCatcher.spy3 = true }
+			function onAscrate75Changed() {spyCatcher.spy4 = true }
+			function onBottompo2Changed() {spyCatcher.spy6 = true }
+			function onBottomsacChanged() {spyCatcher.spy7 = true }
+			function onDecopo2Changed() {spyCatcher.spy8 = true }
+			function onDecosacChanged() {spyCatcher.spy9 = true }
+			function onDescrateChanged() {spyCatcher.spy10 = true }
+			function onDisplay_durationChanged() {spyCatcher.spy11 = true }
+			function onDisplay_runtimeChanged() {spyCatcher.spy12 = true }
+			function onDisplay_transitionsChanged() {spyCatcher.spy13 = true }
+			function onDisplay_variationsChanged() {spyCatcher.spy14 = true }
+			function onDoo2breaksChanged() {spyCatcher.spy15 = true }
+			function onDrop_stone_modeChanged() {spyCatcher.spy16 = true }
+			function onLast_stopChanged() {spyCatcher.spy17 = true }
+			function onMin_switch_durationChanged() {spyCatcher.spy18 = true }
+			function onProblemsolvingtimeChanged() {spyCatcher.spy20 = true }
+			function onReserve_gasChanged() {spyCatcher.spy21 = true }
+			function onSacfactorChanged() {spyCatcher.spy22 = true }
+			function onSafetystopChanged() {spyCatcher.spy23 = true }
+			function onSwitch_at_req_stopChanged() {spyCatcher.spy24 = true }
+			function onVerbatim_planChanged() {spyCatcher.spy25 = true }
 		}
 	}
 

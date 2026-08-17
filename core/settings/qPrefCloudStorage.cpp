@@ -28,9 +28,13 @@ HANDLE_PREFERENCE_BOOL(CloudStorage, "cloud_auto_sync", cloud_auto_sync);
 void qPrefCloudStorage::set_cloud_base_url(const QString &value)
 {
 	if (value.toStdString() != prefs.cloud_base_url) {
-		// only free and set if not default
-		if (prefs.cloud_base_url != default_prefs.cloud_base_url)
-			prefs.cloud_base_url = value.toStdString();
+		// The guard that used to be here - assign only if the current value
+		// differs from the default - dropped the first change away from the
+		// default on the floor, while still emitting the change signal and
+		// syncing to disk. A user moving off the default cloud server was told
+		// it had happened and it had not. It dates from when this was a char *
+		// that had to be freed; a std::string has nothing to free.
+		prefs.cloud_base_url = value.toStdString();
 
 		disk_cloud_base_url(true);
 		emit instance()->cloud_base_urlChanged(value);

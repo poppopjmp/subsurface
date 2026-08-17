@@ -24,9 +24,9 @@ TestCase {
 //		PrefDisplay.font_size = 12.0
 //		compare(PrefDisplay.font_size, 12.0)
 
-		var x4 = PrefDisplay.PrefDisplay_invalid_dives
-		PrefDisplay.PrefDisplay_invalid_dives = !x4
-		compare(PrefDisplay.PrefDisplay_invalid_dives, !x4)
+		var x4 = PrefDisplay.display_invalid_dives
+		PrefDisplay.display_invalid_dives = !x4
+		compare(PrefDisplay.display_invalid_dives, !x4)
 
 		var x5 = PrefDisplay.show_developer
 		PrefDisplay.show_developer = !x5
@@ -83,7 +83,6 @@ TestCase {
 		property bool spy6 : false
 		// no signals 7	
 		property bool spy8 : false
-		property bool spy9 : false
 		// no signals 10,11,12
 		property bool spy13 : false
 		// no signals 14,15
@@ -91,13 +90,13 @@ TestCase {
 
 		Connections {
 			target: PrefDisplay
-			onAnimation_speedChanged: {spyCatcher.spy1 = true }
-			onDisplay_invalid_divesChanged: {spyCatcher.spy4 = true }
-			onShow_developerChanged: {spyCatcher.spy5 = true }
-			onThemeChanged: {spyCatcher.spy6 = true }
-			onLastDirChanged: {spyCatcher.spy8 = true }
-			onMaximizedChanged: {spyCatcher.spy13 = true }
-			onLastStateChanged: {spyCatcher.spy16 = true }
+			function onAnimation_speedChanged() {spyCatcher.spy1 = true }
+			function onDisplay_invalid_divesChanged() {spyCatcher.spy4 = true }
+			function onShow_developerChanged() {spyCatcher.spy5 = true }
+			function onThemeChanged() {spyCatcher.spy6 = true }
+			function onLastDirChanged() {spyCatcher.spy8 = true }
+			function onMaximizedChanged() {spyCatcher.spy13 = true }
+			function onLastStateChanged() {spyCatcher.spy16 = true }
 		}
 	}
 
@@ -119,7 +118,6 @@ TestCase {
 		compare(spyCatcher.spy5, true)
 		compare(spyCatcher.spy6, true)
 		compare(spyCatcher.spy8, true)
-		compare(spyCatcher.spy9, true)
 		compare(spyCatcher.spy13, true)
 		compare(spyCatcher.spy16, true)
 	}

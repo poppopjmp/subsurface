@@ -55,14 +55,14 @@ TestCase {
 
 		Connections {
 			target: PrefCloudStorage
-			onCloud_base_urlChanged: {spyCatcher.spy1 = true }
-			onCloud_storage_emailChanged: {spyCatcher.spy3 = true }
-			onCloud_storage_email_encodedChanged: {spyCatcher.spy4 = true }
-			onCloud_storage_passwordChanged: {spyCatcher.spy5 = true }
-			onCloud_storage_pinChanged: {spyCatcher.spy6 = true }
-			onCloud_timeoutChanged: {spyCatcher.spy7 = true }
-			onCloud_verification_statusChanged: {spyCatcher.spy8 = true }
-			onSave_password_localChanged: {spyCatcher.spy9 = true }
+			function onCloud_base_urlChanged() {spyCatcher.spy1 = true }
+			function onCloud_storage_emailChanged() {spyCatcher.spy3 = true }
+			function onCloud_storage_email_encodedChanged() {spyCatcher.spy4 = true }
+			function onCloud_storage_passwordChanged() {spyCatcher.spy5 = true }
+			function onCloud_storage_pinChanged() {spyCatcher.spy6 = true }
+			function onCloud_timeoutChanged() {spyCatcher.spy7 = true }
+			function onCloud_verification_statusChanged() {spyCatcher.spy8 = true }
+			function onSave_password_localChanged() {spyCatcher.spy9 = true }
 		}
 	}
 

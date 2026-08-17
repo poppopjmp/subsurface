@@ -48,13 +48,13 @@ TestCase {
 
 		Connections {
 			target: PrefPartialPressureGas
-			onPheChanged: {spyCatcher.spy1 = true }
-			onPhe_thresholdChanged: {spyCatcher.spy2 = true }
-			onPn2Changed: {spyCatcher.spy3 = true }
-			onPn2_thresholdChanged: {spyCatcher.spy4 = true }
-			onPo2Changed: {spyCatcher.spy5 = true }
-			onPo2_threshold_maxChanged: {spyCatcher.spy6 = true }
-			onPo2_threshold_minChanged: {spyCatcher.spy7 = true }
+			function onPheChanged() {spyCatcher.spy1 = true }
+			function onPhe_thresholdChanged() {spyCatcher.spy2 = true }
+			function onPn2Changed() {spyCatcher.spy3 = true }
+			function onPn2_thresholdChanged() {spyCatcher.spy4 = true }
+			function onPo2Changed() {spyCatcher.spy5 = true }
+			function onPo2_threshold_maxChanged() {spyCatcher.spy6 = true }
+			function onPo2_threshold_minChanged() {spyCatcher.spy7 = true }
 		}
 	}
 
